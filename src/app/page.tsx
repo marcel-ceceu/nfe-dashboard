@@ -13,11 +13,12 @@ type Nota = {
   situacao: string | null
   ciencia_em: string | null
   possui_xml: boolean
+  xml_local?: boolean
 }
 
 const fmtData = (s: string | null) => {
   if (!s) return '-'
-  const [y, m, d] = s.split('-')
+  const [y, m, d] = s.substring(0, 10).split('-')
   return `${d}/${m}/${y}`
 }
 
@@ -196,15 +197,17 @@ export default function Home() {
                     <td className="px-4 py-2">
                       <div className="flex gap-1 justify-center">
                         <a
-                          href={n.possui_xml ? `/api/xml/${n.chave_acesso}` : undefined}
+                          href={(n.possui_xml || n.xml_local) ? `/api/xml/${n.chave_acesso}` : undefined}
                           target="_blank"
                           rel="noopener noreferrer"
                           className={
-                            n.possui_xml
-                              ? 'px-2 py-1 text-xs rounded bg-blue-100 text-blue-700 hover:bg-blue-200'
-                              : 'px-2 py-1 text-xs rounded bg-gray-100 text-gray-400 cursor-not-allowed pointer-events-none'
+                            n.xml_local
+                              ? 'px-2 py-1 text-xs rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 font-medium'
+                              : n.possui_xml
+                                ? 'px-2 py-1 text-xs rounded bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                : 'px-2 py-1 text-xs rounded bg-gray-100 text-gray-400 cursor-not-allowed pointer-events-none'
                           }
-                          title={n.possui_xml ? 'Baixar XML' : 'XML não disponível'}
+                          title={n.xml_local ? 'Baixar XML (local - Supabase)' : n.possui_xml ? 'Baixar XML (via Espiao)' : 'XML nao disponivel'}
                         >
                           XML
                         </a>
@@ -231,7 +234,7 @@ export default function Home() {
         </div>
 
         <footer className="mt-6 text-xs text-gray-400 text-center">
-          Dados: Supabase consultaxml · XML/DANFE: Espião Cloud NFe
+          Dados: Supabase consultaxml · XML: Supabase (local) + Espiao (fallback) · DANFE: Espiao
         </footer>
       </div>
     </main>
