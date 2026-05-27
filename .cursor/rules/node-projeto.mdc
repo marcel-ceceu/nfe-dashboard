@@ -1,0 +1,22 @@
+---
+description: Projetos Node/Next — dev local, abrir-dash, dependências
+alwaysApply: false
+---
+
+# Node / Next — projeto Marcel
+
+## Dev local
+
+- Porta padrão: **3000** (`next dev -p 3000` ou script `dev` equivalente).
+- Duplo clique: **`abrir-dash.bat`** na raiz — instala deps se faltar, sobe servidor, abre browser.
+- Package manager: **pnpm** se existir; senão **npm** (`npm run dev`).
+
+## Dependências
+
+- Se `node_modules` não existir, rodar `npm install` ou `pnpm install` antes do primeiro dev.
+- Versão Node recomendada: ver **`mise.toml`** na raiz (22).
+
+## O que não fazer
+
+- Não commitar `.env.local` nem chaves de API.
+- Não assumir que `pnpm` está no PATH ao abrir terminal pelo Explorer — o `abrir-dash.ps1` já resolve caminhos comuns do Node.

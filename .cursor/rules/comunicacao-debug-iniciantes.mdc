@@ -1,0 +1,16 @@
+---
+description: Ao pedir perguntas/orientações em debug (stack, evidência), usar linguagem clara para quem está a aprender — simples, específico, objetivo.
+alwaysApply: true
+---
+
+# Comunicação em debug — didática e essentialista
+
+Quando esta conversa ou tarefas forem sobre **investigar erro, pedir dados de runtime, repetir um teste, ou ler logs**:
+
+1. **Evitar “linguagem sênior”** onde couber dizê-lo mais curto — sem menosprezar inteligência; só reduzir carga cognitiva.
+2. Ser **objetivo e específico**: diz o que pedir (“copiar a linha X”, “onde ver Y”), não blocos vagos (“validar hipótese do subsistema”).
+3. **Preferir bullets curtos ou lista numerada** — um passo, uma coisa para fazer.
+4. Ao usar termo técnico necessário (**JAR**, **log**, **resposta HTTP**), **uma vez** pode ir parênteses: *“resposta HTTP = texto que o site devolve ao clicar”.
+5. **Perguntas**: no máximo 1–2 por mensagem quando possível; pergunta concreta (“o ecrã mostra X ou só Y?”).
+
+Objetivo: o utilizador perceba **o quê**, **onde** e **porquê faz sentido**, sem ler um relatório corporativo.

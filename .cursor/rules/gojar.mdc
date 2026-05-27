@@ -1,0 +1,147 @@
+---
+description: GOJAR — build JAR + jar tf + checklist; padrão com histórico nos fontes (M) como GOHIST; variante sem histórico (rápido)
+alwaysApply: false
+---
+
+# GOJAR — Build JAR Sankhya a partir do arquivo citado (@)
+
+Quando o usuário disser **GOJAR** (maiúsculas ou minúsculas) e a mensagem incluir **referência a arquivo** (`@arquivo.java` / anexo de contexto a um `.java`):
+
+## GOJAR — Padrão **com** histórico nos arquivos
+
+**Objetivo:** compilar/empacotar o JAR e, **por padrão**, registrar **HISTÓRICO DE ALTERAÇÕES** nos arquivos **M**, conforme **`gohist.mdc`**.
+
+### Script e ambiente (repositório **sankhyageral**)
+
+- **Script de build (caminho no repo):** `1.0-Sankhya\2.Java\DescricaoRotinasJava\build-sankhya-jar.ps1` (confirmar com `glob **/build-sankhya-jar.ps1` se a árvore mudar).
+- **Absoluto (este workspace):** `c:\projetos\sankhyageral\1.0-Sankhya\2.Java\DescricaoRotinasJava\build-sankhya-jar.ps1`
+- **Dependências no mesmo `SourceRoot` (ex.: `LogErroInfinite.java` com a rotina):** em **modo GOJAR padrão** passar **`-AdditionalEntryRelativePaths`** com o nome de cada ficheiro (evita JAR com **todas** as rotinas da pasta — no Sankhya o módulo listaria só a classe alvo + auxiliares). Exemplo `IFT4DuplicaNota` + `LogErroInfinite`: `-EntryRelativePath "IFT4DuplicaNota.java" -AdditionalEntryRelativePaths "LogErroInfinite.java"`
+- **Libs Sankhya (`-LibsPath`):**
+  - **`C:\2.Dev Programação\Library_Sankhya_CursorJar`** — default interno do `build-sankhya-jar.ps1` (quando existir).
+  - **`C:\1.Programacao\Biblioteca Java (Sankhya)`** — outro PC / instalação.
+  - **`C:\1. Trabalho\Library_Sankhya_CursorJar`** — **validado neste PC** (19/05/2026): classpath completo para IFT4 (`jboss-ejb-api`, `SankhyaW-extensions`, `mgecom-model`, …).
+  - **`C:\IDE\Biblioteca Para Eclipse`** — tem `SankhyaW-extensions.jar`, mas **falta** `jboss-ejb-api` → build IFT4 falha com `EJBObject`.
+  - Se o build falhar com *Pasta de libs nao encontrada* ou *EJBObject* / *package does not exist*: executar **`1.0-Sankhya\2.Java\DescricaoRotinasJava\Find-SankhyaLibs.ps1`** e usar o caminho **RECOMENDADO** (marcadores `SankhyaW-extensions` + `jape` + `mge-modelcore` + `jboss-ejb-api`).
+
+### Chamada 1 — Build + `jar tf` (se sucesso) + HISTDATE + status + `git diff` — **uma** Shell
+
+Substituir `<RAIZ_DO_REPO>`, `-SourceRoot`, `-EntryRelativePath`, `<BASE_DO_JAVA>` e, se necessário, acrescentar `-LibsPath` (ver bloco acima).
+
+**Com `-LibsPath` (quando o default do script não existir neste PC — trocar pelo caminho válido):**
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "c:\projetos\sankhyageral\1.0-Sankhya\2.Java\DescricaoRotinasJava\build-sankhya-jar.ps1" -SourceRoot "<PASTA_PAI_ABSOLUTA>" -EntryRelativePath "<NOME_ARQUIVO.java>" -LibsPath "C:\2.Dev Programação\Library_Sankhya_CursorJar"; $buildExit = $LASTEXITCODE; if ($buildExit -eq 0) { & "C:\Program Files\Java\jdk1.8.0_202\bin\jar.exe" tf "$env:USERPROFILE\Desktop\<BASE_DO_JAVA>.jar" }; Set-Location 'c:\projetos\sankhyageral'; Write-Output "HISTDATE=$(Get-Date -Format 'dd/MM/yyyy HH:mm')"; git status --short; git diff
+```
+
+**Com dependência no mesmo diretório** (ficheiro extra no mesmo `SourceRoot`; repetir o parâmetro ou usar array, conforme a linha de comando): `-AdditionalEntryRelativePaths "LogErroInfinite.java"`.
+
+*(No outro PC, se necessário: `-LibsPath "C:\1.Programacao\Biblioteca Java (Sankhya)"`.)*
+
+**Sem `-LibsPath` (quando os defaults do `build-sankhya-jar.ps1` existirem no disco):**
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "<CAMINHO_DO_BUILD-SANKHYA-JAR.PS1>" -SourceRoot "<PASTA_PAI_ABSOLUTA>" -EntryRelativePath "<NOME_ARQUIVO.java>"; $buildExit = $LASTEXITCODE; if ($buildExit -eq 0) { & "C:\Program Files\Java\jdk1.8.0_202\bin\jar.exe" tf "$env:USERPROFILE\Desktop\<BASE_DO_JAVA>.jar" }; Set-Location '<RAIZ_DO_REPO>'; Write-Output "HISTDATE=$(Get-Date -Format 'dd/MM/yyyy HH:mm')"; git status --short; git diff
+```
+
+- O build (e o `jar tf` se exit 0) rodam antes do `git`; depois **sempre** `HISTDATE`, `git status --short` e `git diff` na raiz do repo.
+- **Depois** da Shell (ferramentas de edição, **não** Shell): se existirem arquivos **M** no `git status`, aplicar **GOHIST** conforme **`gohist.mdc`** (formato, guarda anti-duplicação).
+- Se **não** houver **M**: não há linhas de histórico em fontes — informar; checklist do JAR igualmente na resposta.
+- Se working tree **limpa**: só build/checklist + mensagem (sem edições de histórico).
+
+### Resposta ao usuário (padrão) — **checklist mínimo verificável**
+
+- **JAR / build:** checklist build/JAR/classe (itens 7–8 abaixo).
+- **Histórico:** quantos arquivos **M** receberam linha (ou "nenhum M — histórico não aplicado").
+- **Próximo passo:** **@gozip** para ZIP do dashboard; **@gopush** ou **@gozipush** se quiser commit e push.
+
+---
+
+## GOJAR — **Sem histórico** (rápido)
+
+Usar **apenas** quando o usuário pedir explicitamente, por exemplo: **GOJAR sem histórico**, **sem historico**, **sem hist**, **rápido**, **fast**, **no hist**.
+
+**Uma** Shell — build + `jar tf` (se sucesso) + status curto (**sem** `git diff`, **sem** `HISTDATE` obrigatório para gravação):
+
+**Com `-LibsPath` (usar o caminho que existir no PC — ex. `C:\2.Dev Programação\Library_Sankhya_CursorJar` ou `C:\1.Programacao\Biblioteca Java (Sankhya)`):**
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "c:\projetos\sankhyageral\1.0-Sankhya\2.Java\DescricaoRotinasJava\build-sankhya-jar.ps1" -SourceRoot "<PASTA_PAI_ABSOLUTA>" -EntryRelativePath "<NOME_ARQUIVO.java>" -LibsPath "C:\2.Dev Programação\Library_Sankhya_CursorJar"; if ($LASTEXITCODE -eq 0) { & "C:\Program Files\Java\jdk1.8.0_202\bin\jar.exe" tf "$env:USERPROFILE\Desktop\<BASE_DO_JAVA>.jar" }; Set-Location 'c:\projetos\sankhyageral'; git status --short
+```
+
+**Sem `-LibsPath`:**
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "<CAMINHO_DO_BUILD-SANKHYA-JAR.PS1>" -SourceRoot "<PASTA_PAI_ABSOLUTA>" -EntryRelativePath "<NOME_ARQUIVO.java>"; if ($LASTEXITCODE -eq 0) { & "C:\Program Files\Java\jdk1.8.0_202\bin\jar.exe" tf "$env:USERPROFILE\Desktop\<BASE_DO_JAVA>.jar" }; Set-Location '<RAIZ_DO_REPO>'; git status --short
+```
+
+- **Não** editar arquivos para histórico.
+- Resposta: checklist JAR + status curto; modo **sem histórico**.
+
+---
+
+## O que fazer (além do histórico)
+
+1. **Escolher o alvo:** o arquivo `.java` citado com `@` na mensagem. Se houver **vários** `.java` anexados, usar o **primeiro** que aparecer na mensagem; se o usuário nomear um explicitamente no texto, preferir esse.
+2. **Se não houver nenhum `.java` no contexto:** avisar que é preciso citar o arquivo com `@` e **não** inventar caminho.
+3. **Se o arquivo citado não for `.java`:** avisar que GOJAR só aplica a fontes `.java`.
+4. **Derivar parâmetros** para `build-sankhya-jar.ps1`:
+   - `-SourceRoot` = pasta **pai** do arquivo (diretório que contém o `.java`), caminho **absoluto** Windows.
+   - `-EntryRelativePath` = **somente o nome do arquivo** (ex.: `GeraDevVenda.java`). Para `.java` em subpastas (ex.: `FaturamentosNotasPedidos\AlteraDtNegPedido.java`), `SourceRoot` é a pasta `FaturamentosNotasPedidos` e `EntryRelativePath` continua só `AlteraDtNegPedido.java`.
+   - Se o ficheiro **importa** outra classe **fonte** no **mesmo** `SourceRoot` (ex.: `LogErroInfinite`), adicionar **`-AdditionalEntryRelativePaths "Nome.java"`** — **não** compilar a pasta inteira salvo o utilizador pedir JAR de **todas** as rotinas.
+5. **Localizar o script** `build-sankhya-jar.ps1` no workspace (ex.: **`1.0-Sankhya\2.Java\DescricaoRotinasJava\build-sankhya-jar.ps1`**). Se o build falhar por pasta de libs, usar **`-LibsPath`** com **`C:\2.Dev Programação\Library_Sankhya_CursorJar`** ou **`C:\1.Programacao\Biblioteca Java (Sankhya)`**, conforme o PC.
+6. **Ler o `package`** no `.java` alvo (início do arquivo). Converter para o caminho esperado no JAR: `package br.com.sankhya.apesp;` → entrada esperada `br/com/sankhya/apesp/<NomeDaClasse>.class`.
+7. **Após sucesso do build:** na resposta ao usuário, incluir **sempre** um **checklist** em markdown, preenchendo com base na saída do terminal e no `package`:
+   - **Build:** script terminou com sucesso (exit 0) e mensagem de conclusão do próprio `build-sankhya-jar.ps1` (ex.: `BUILD CONCLUIDO COM SUCESSO`).
+   - **JAR no Desktop:** caminho completo do `.jar`; arquivo existe e tamanho coerente (o script imprime tamanho em KB).
+   - **Classe dentro do JAR:** na saída do `jar tf`, consta a entrada `.class` no caminho que corresponde ao `package` + nome da classe (ex.: `br/com/sankhya/apesp/AlteraDtNegPedido.class`). Se não constar, marcar como falha e citar o que o `jar tf` listou (trecho relevante).
+   - **Observação:** o script remove a pasta temporária `build_tmp` após o sucesso; a confirmação de compilação no disco é via **JAR + `jar tf`**, não um `.class` permanente ao lado do `.java`.
+
+Exemplo completo (padrão com histórico — `FaturamentosNotasPedidos\GeraDevVenda.java`):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "c:\projetos\sankhyageral\1.0-Sankhya\2.Java\DescricaoRotinasJava\build-sankhya-jar.ps1" -SourceRoot "c:\projetos\sankhyageral\1.0-Sankhya\2.Java\3.RotinaJava\FaturamentosNotasPedidos" -EntryRelativePath "GeraDevVenda.java" -LibsPath "C:\2.Dev Programação\Library_Sankhya_CursorJar"; $buildExit = $LASTEXITCODE; if ($buildExit -eq 0) { & "C:\Program Files\Java\jdk1.8.0_202\bin\jar.exe" tf "$env:USERPROFILE\Desktop\GeraDevVenda.jar" }; Set-Location "c:\projetos\sankhyageral"; Write-Output "HISTDATE=$(Get-Date -Format 'dd/MM/yyyy HH:mm')"; git status --short; git diff
+```
+
+Exemplo **IFT4DuplicaNota** + `LogErroInfinite` (JAR mínimo para módulo só com esta rotina):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "c:\projetos\sankhyageral\1.0-Sankhya\2.Java\DescricaoRotinasJava\build-sankhya-jar.ps1" -SourceRoot "c:\projetos\sankhyageral\1.0-Sankhya\2.Java\3.RotinaJava\FaturamentosNotasPedidos\2603-InfiniteRotinaPEDVEN" -EntryRelativePath "IFT4DuplicaNota.java" -AdditionalEntryRelativePaths "LogErroInfinite.java" -LibsPath "C:\1. Trabalho\Library_Sankhya_CursorJar"
+```
+
+Descobrir libs: `powershell -NoProfile -ExecutionPolicy Bypass -File "c:\projetos\sankhyageral\1.0-Sankhya\2.Java\DescricaoRotinasJava\Find-SankhyaLibs.ps1"`
+
+### Regras do GOJAR
+
+- **Não** pedir confirmação — executar direto.
+- **Não** executar commit nem push (usar **@gozip**, **@gopush** ou **@gozipush**).
+- **Padrão:** 1 Shell + passo de edição IA para histórico (só se houver **M**).
+- **Sem histórico:** **1 Shell** apenas (sem `git diff`).
+
+## O que não fazer
+
+- Não usar `javac` do `PATH` / `JAVA_HOME` fora do que o script já fixa.
+- **Não** omitir `-EntryRelativePath` salvo o usuário pedir build do **projeto inteiro** (aí usar só `-SourceRoot`); para rotina + classe irmã no mesmo diretório, usar **`-EntryRelativePath` + `-AdditionalEntryRelativePaths`**, em vez de compilar a pasta toda. Ver também **`build-sankhya-jar.mdc`**.
+
+## Proibições
+
+Ver **`_go-common.mdc`** (proibições comuns).
+
+## Relação com outras regras
+
+- Formato e inserção de histórico: **`gohist.mdc`**.
+- Detalhes do script e modo "projeto inteiro": `build-sankhya-jar.mdc`.
+
+### Substituições frequentes
+
+| Placeholder | Exemplo |
+|------------|---------|
+| `<BASE_DO_JAVA>` | `GeraDevVenda` (sem `.java`) |
+| `<RAIZ_DO_REPO>` | ex.: `c:\projetos\sankhyageral` (ajustar à raiz git local) |
+| Script `build-sankhya-jar.ps1` | `1.0-Sankhya\2.Java\DescricaoRotinasJava\build-sankhya-jar.ps1` |
+| Dep. mesma pasta | `-AdditionalEntryRelativePaths "LogErroInfinite.java"` (ex.) |
+| `-LibsPath` (PC A — default do script) | `C:\2.Dev Programação\Library_Sankhya_CursorJar` |
+| `-LibsPath` (PC B — alternativa) | `C:\1.Programacao\Biblioteca Java (Sankhya)` |
+| `-LibsPath` (PC Marcel — validado) | `C:\1. Trabalho\Library_Sankhya_CursorJar` |
+| Descobrir libs | `1.0-Sankhya\2.Java\DescricaoRotinasJava\Find-SankhyaLibs.ps1` |
+
+Para **só** histórico sem build: **@gohist**.

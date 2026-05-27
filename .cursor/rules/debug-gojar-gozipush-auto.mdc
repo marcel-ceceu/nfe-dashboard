@@ -1,0 +1,34 @@
+---
+description: Em sessão de debug ativo — GOJAR e GOZIP são executados automaticamente ao final de cada lote; GOZIPUSH manual; fora de debug permanecem manuais
+alwaysApply: false
+---
+
+# GOJAR e GOZIP automáticos em modo debug
+
+## Gatilho
+
+Esta regra aplica-se quando a conversa estiver em **modo debug ativo** — isto é, quando o objetivo principal da sessão for **investigar um erro, NPE, exceção ou comportamento inesperado** em rotina Java e/ou dashboard HTML5 Sankhya.
+
+Sinais de "modo debug ativo":
+- Discussão de `NullPointerException`, `Exception`, `statusMessage` de erro, stack trace
+- Iterações do ciclo: corrigir código → publicar JAR → testar → analisar resposta
+- Presença de arquivo `.har` na conversa
+- Mensagens sobre "nova versão do JAR", "publicar", "testar de novo"
+
+## O que fazer automaticamente
+
+Ao final de **cada lote de correções** (edições no `.java` e/ou no dashboard `src/`):
+
+1. **GOJAR** — compilar o JAR do `.java` modificado e gerar o `.jar` no Desktop (sem pedir confirmação).
+2. **GOZIP** — ZIP do `dist/` ou `DIST/` do dashboard (sem Git; sem pedir confirmação). **Não** usar GOZIPUSH em debug salvo o utilizador pedir commit/push no mesmo lote.
+
+A ordem é: GOJAR primeiro (se `.java` foi editado), depois GOZIP (se dashboard foi editado).
+
+## O que NÃO muda
+
+- Fora de debug (sessões normais de desenvolvimento, feature, refactor): GOJAR e GOZIP **continuam manuais** — só executar quando o utilizador pedir (`GOJAR`, `@gozip`, `@gozipush`, etc.).
+- As regras `gojar.mdc`, `gozip.mdc`, `gozipush.mdc`, `gopush.mdc` e `gohist.mdc` definem **como** cada fluxo corre; esta regra define **quando** GOJAR/GOZIP são automáticos em debug.
+
+## Nota
+
+Em debug, após GOJAR automático, lembrar sempre (uma linha curta) que é preciso **publicar o JAR no Módulo Java** e **o HTML na Nuvem** antes de testar novamente — conforme `debug-sankhya-publicar-html-java.mdc`.

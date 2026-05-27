@@ -1,0 +1,45 @@
+---
+description: >-
+  00-SankhyaRefTabelas — quatro documentos MD (nativas, adicionais, views, ref-sistema);
+  referências leves por secção; sem inventar objetos
+alwaysApply: false
+---
+
+# SANKHYA-REF-TABELAS — pasta `00-SankhyaRefTabelas`
+
+Acione esta regra quando o utilizador citar **`00-SankhyaRefTabelas`**, **`@sankhya-ref-tabelas`**, ou quando **criar/alterar SQL** Sankhya e existir necessidade de **documentar objetos usados** no repositório.
+
+## Raiz — apenas quatro ficheiros
+
+Tudo na pasta **`00-SankhyaRefTabelas/`** (raiz do repo `sankhyageral`):
+
+| Ficheiro | Conteúdo |
+|----------|----------|
+| **`tabelas-nativas.md`** | Tabelas de produto que **não** são `AD_*` nem views segundo o `scan-ref-repo.js`. |
+| **`tabelas-adicionais.md`** | Tabelas **`AD_*`** e adicionais/custom do projeto. |
+| **`views.md`** | Views (`AVW_*`, `AE*`+dígito, `VW_*`, `VGFCAB`, etc.) — critérios no `scan-ref-repo.js` e cabeçalho do ficheiro. |
+| **`ref-sistema.md`** | Índice, convenções, pasta `4.0.0-VIEWS`, comando de regeneração — **sem** duplicar listagens longas dos outros três. |
+
+**Não** criar subpastas por tabela nem um `.md` por objeto: **agrupar** em secções dentro do documento certo (ex.: `## TGFCAB`).
+
+## Formato alvo por secção (leve)
+
+Para cada **`## NOMEOBJETO`**:
+
+- **Nome** do objeto no título;
+- **Colunas** mapeadas no projeto, **ordenadas por uso/frequência** quando houver métrica;
+- **Tipo lógico** simples (texto, número, data, booleano, etc.) — **sem** DDL longo.
+
+## Relação com outras regras
+
+- SQL de **diagnóstico no DB Explorer**: preferir **um script, uma execução** (`um-script-sql-dbexplorer.mdc`).
+- **Dashboards**: prioridade `src/` + `build.js` quando aplicável (`dash-src-build.mdc`).
+
+## O que o agente deve fazer / evitar
+
+- **Fazer**: editar **só** o `.md` da categoria correta; acrescentar ou atualizar a secção do objeto.
+- **Evitar**: inventar colunas sem fonte; espalhar o mesmo objeto em vários ficheiros.
+
+## Skill associada
+
+- **`.cursor/skills/sankhya-ref-tabelas/SKILL.md`**

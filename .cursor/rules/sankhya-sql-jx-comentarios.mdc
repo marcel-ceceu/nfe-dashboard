@@ -1,0 +1,33 @@
+---
+description: SQL embutido em dashboards HTML5/JX Sankhya — sem comentarios no topo do texto executado (DbExplorerSP / MGE)
+alwaysApply: true
+---
+
+# SQL em dashboards Sankhya (JX / HTML5 / DbExplorer)
+
+## Problemas observados
+
+1. **Comentario de bloco** `/* ... */` com **UTF-8 “rico”** (ex. em-dash `—`) ou parse do middleware → Oracle pode nao ver o `*/` corretamente → **ORA-00923** ou sintaxe invalida.
+
+2. **Comentario de linha** `--` no **inicio** do script: se o MGE/JX ou algum passo **normalizar o SQL para uma unica linha** (ou colar linhas sem `\n`), tudo apos `--` na mesma linha fica **comentado**, incluindo o primeiro `WITH`/`SELECT` → servidor responde algo como **“O comando SELECT esta em formato invalido.”** (status 0 no DbExplorerSP) e **0 linhas**.
+
+3. **`JX.consultar` remove quebras de linha sem inserir espaco** (`query.replace(/(\r\n|\n|\r)/gm, '')` em `1.0-Sankhya/3. Regras e Modelos/3.2- Ref Dash HTML/Jx e JS/jx.js`). Dois tokens que ficavam em linhas consecutivas passam a **colados** (`CAB\nJOIN` → `CABJOIN`, `IPITT\nFROM` → `IPITTFROM`, `CODEMP\nWHERE` → `CODEMPWHERE`) → **ORA-00923** ou sintaxe invalida no servidor, **embora** o mesmo SQL multilinha funcione no DB Explorer.
+
+## O que fazer (regra pratica)
+
+- No texto do SQL que sera injetado no HTML (`JSON.stringify` no `build.js`) e executado via **DbExplorerSP.executeQuery** / **JX.consultar**:
+  - **Nao** colocar linha inicial `-- ...`.
+  - **Nao** colocar `/* ... */` no topo (se usar bloco, apenas ASCII e testar no ambiente; o mais seguro e **sem comentario** no SQL executado).
+- **SQL para `JX.consultar`:** depois do strip de newlines tem de continuar valido. Preferir **uma unica linha** com espacos explicitos entre palavras-chave, ou manter multilinha mas com **espaco garantido entre tokens** onde a quebra podia colar: por exemplo **indentar** `FROM`, `JOIN`, `LEFT JOIN`, `WHERE`, `GROUP BY`, `ORDER BY` com os mesmos espacos do bloco `SELECT` (ultimo alias + `FROM` na linha seguinte com indentacao → ha espaco entre tokens). Ver tambem `1.0-Sankhya/3. Regras e Modelos/RegrasSankhyaBancoDados/RefNegociacaoCascata.txt` (SS 8 ponto 5 — strip de newlines no JX).
+- Documentar visao/nivel em **ficheiro aparte** (`cols.js`, README, comentario no `build.js`) em vez do corpo do `.sql` embutido.
+
+## O que evitar
+
+- Comentario `--` como **primeira linha** do ficheiro SQL embutido.
+- Caracteres nao ASCII desnecessarios em comentarios (em-dash, aspas tipograficas).
+
+## Relacao com o repositorio
+
+- **1819-GERENMASTER-RelatorioAdm**: `src/visoes/dash-*/sql-n*.sql` comecam **direto** em `WITH` ou `SELECT` (sem cabecalho de comentario no SQL enviado).
+- **Indentacao `FROM` / `JOIN` / `WHERE` / `GROUP` / `ORDER` para JX:** ver regra obrigatoria **`sankhya-sql-jx-from-join-indent.mdc`**.
+- Ver **`CompatibilidadeDashSankhya.mdc`** (ambiente iframe / JX).

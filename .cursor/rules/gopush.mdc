@@ -1,0 +1,114 @@
+---
+description: GOPUSH — sempre na main; stash auto; add + commit + pull --rebase + push
+alwaysApply: false
+---
+
+# GOPUSH — commit e push na main (sempre)
+
+Fluxo: **garante main** + **`git add -A`** + **`git commit`** + **`git pull --rebase`** + **`git push`**.
+
+Todo trabalho do utilizador vai para **`main`**. Se a branch atual não for main, o agente trata isso automaticamente (stash + checkout + pop) **antes** de qualquer commit.
+
+## Gatilhos
+
+- **GOPUSH**, **@gopush**
+
+## Raiz, mensagem, aspas e multi-repo
+
+Ver **`_go-common.mdc`** para resolução de `<RAIZ_REPO>`, mensagem híbrida, aspas no PowerShell e multi-repo.
+
+## Pré-verificação — branch atual
+
+Antes de tudo, verificar branch atual:
+
+```powershell
+Set-Location '<RAIZ_REPO>'; git rev-parse --abbrev-ref HEAD
+```
+
+### Se branch atual = `main`
+
+Seguir direto pro fluxo padrão (Cenário A ou B abaixo).
+
+### Se branch atual ≠ `main`
+
+Mover utilizador pra main **antes** de qualquer commit:
+
+```powershell
+git status --porcelain
+```
+
+**Se houver alterações** (saída não vazia):
+
+```powershell
+$ts = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; git stash push -u -m "gopush-auto $ts"; git checkout main; git stash pop
+```
+
+**Se NÃO houver alterações**:
+
+```powershell
+git checkout main
+```
+
+Em ambos os casos, reportar no checklist: `Branch: movido de '<X>' pra main`.
+
+**Conflito no `git stash pop`**: parar e reportar; o stash fica salvo em `git stash list` para o utilizador resolver manualmente.
+
+## Pré-commit
+
+- Correr **`git status --short`** na `<RAIZ_REPO>`.
+- Se **não** houver alterações, **não** executar `git commit`; só `pull --rebase` + `push` se houver commits locais não pushados.
+
+## Cenário A — mensagem fornecida (1 Shell)
+
+Exemplo: `GOPUSH atualiza consulta financeiro`
+
+```powershell
+git add -A; git commit -m '<RESUMO>'; git pull --rebase origin main; git push origin main; git status --short
+```
+
+## Cenário B — sem mensagem (2 Shells)
+
+### Shell 1 — status
+
+```powershell
+git status --short
+```
+
+O agente analisa a saída e gera `<RESUMO_IA>` (1 linha, português, foco no que mudou).
+
+### Shell 2 — commit + sync
+
+**Working tree com alterações:**
+
+```powershell
+git add -A; git commit -m '<RESUMO_IA>'; git pull --rebase origin main; git push origin main; git status --short
+```
+
+**Working tree limpa** (só commits locais não-pushados):
+
+```powershell
+git pull --rebase origin main; git push origin main; git status --short
+```
+
+## Conflitos no pull --rebase
+
+Se `git pull --rebase` resultar em conflito, **parar** e reportar no checklist. Não tentar resolver automaticamente.
+
+## Resposta ao utilizador — checklist mínimo
+
+- **Branch:** `main` (ou: "movido de `<X>` pra main via stash auto").
+- **Commit:** hash curto + mensagem; ou "nada a commitar".
+- **Pull:** ok (up to date / rebased) ou conflito (parar e avisar).
+- **Push:** ok (`main` → `origin/main`).
+
+## Proibições
+
+Ver **`_go-common.mdc`** (proibições comuns). Adicionalmente:
+
+- **Nunca push para branch diferente de `main`.**
+- Executar **sem hesitação** ao receber o gatilho.
+
+## Relação com outras regras
+
+- **GOCOMMIT removido** — todo fluxo agora é GOPUSH direto pra main.
+- **GOZIPUSH** invoca a lógica GOPUSH no seu Passo 4.

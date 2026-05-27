@@ -1,0 +1,47 @@
+---
+description: Blocos partilhados pela família GO* — resolução de raiz, mensagem, aspas, multi-repo e proibições comuns
+alwaysApply: false
+---
+
+# GO* — Blocos comuns
+
+Ficheiro de referência para **GOPUSH**, **GOZIP**, **GOZIPUSH**, **GOJAR** e **GOHOSTINGER**. Não tem gatilho próprio.
+
+## Qual repositório (`<RAIZ_REPO>`)
+
+1. **Predefinição:** se o utilizador **não** citar pasta e o contexto for o projeto **sankhyageral** habitual, usar
+   `c:\projetos\sankhyageral`.
+
+2. **Com `@` (ficheiro ou pasta):** resolver a **raiz Git** do caminho citado:
+   - A partir do diretório do ficheiro/pasta (se for ficheiro, usar o **diretório pai**), correr
+     `Set-Location '<dir>'; git rev-parse --show-toplevel`
+     e usar o caminho devolvido como `<RAIZ_REPO>`.
+   - Se `git rev-parse` **falhar** (não é dentro de um repo), **não** inventar raiz: informar o utilizador.
+
+3. **Workspace multi-root (Cursor / VS Code):** se existirem **vários** repositórios no Source Control e o pedido **não** deixar claro em qual commitar **e** não houver `@`, o agente **pergunta** qual raiz usar.
+
+4. **Submódulo / pasta com `.git` próprio:** tratar como **repositório separado** — exige `Set-Location` nessa raiz (ou `git -C`).
+
+## Vários repositórios num único pedido
+
+- Só quando o utilizador for **explícito** (vários `@`, ou texto tipo "todos os repos" **e** estiver claro **quais** caminhos).
+- Para **cada** `<RAIZ_REPO>`: repetir o fluxo completo (pré-verificação de `status`, definir `<RESUMO>`, Shell com `Set-Location` nessa raiz + comandos git).
+- **Mensagem:** uma única `<RESUMO>` pedida pelo utilizador aplica-se a **todos** os commits desse pedido; se o utilizador não der texto e for preciso resumo IA, o agente pode **adaptar** ao nome da pasta do repo.
+
+## Mensagem do commit (híbrida)
+
+1. **Prioridade:** se o utilizador indicar **explicitamente** o texto da mensagem (frase, aspas, ou "mensagem: …"), usar **esse** texto como `<RESUMO>`.
+2. **Fallback (sem texto):** o agente redige **uma linha curta** em **português** a partir de `git status --short` — baseando-se **só nos nomes dos arquivos** modificados/adicionados/removidos. **Não** ler diff completo; **não** colar diff na resposta.
+
+## Aspas na mensagem (`<RESUMO>`)
+
+- Preferir mensagem **sem** caracteres que partam o PowerShell.
+- Se **não** houver **`'`** na mensagem: `git commit -m '<RESUMO>'` (aspas simples externas).
+- Se houver aspas ou texto complexo: atribuir a uma variável `$msg` e passar `git commit -m $msg`.
+
+## Proibições comuns (toda a família GO*)
+
+- **Não** alterar `git config`.
+- **Não** colar **`git diff` completo** na resposta ao utilizador.
+- **Não** pedir confirmação quando o pedido estiver claro.
+- Encadear com **`;`**, **nunca** `&&` (PowerShell 5.x — ver `shell-powershell-windows.mdc`).

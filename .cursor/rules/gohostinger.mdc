@@ -1,0 +1,144 @@
+---
+description: GOHOSTINGER — deploy/health MENUGERAL na VPS Hostinger + operações MCP (VPS, DNS, domínios, hosting)
+alwaysApply: false
+---
+
+# GOHOSTINGER — VPS Hostinger e MENUGERAL
+
+Fluxo operacional para **produção na VPS Hostinger** e tarefas via **MCP Hostinger** no Cursor.
+
+**Gatilhos:** **GOHOSTINGER**, **@gohostinger**
+
+Documentação de referência: **`MENUGERAL/hostinger/README.md`**.
+
+## Contexto fixo (MENUGERAL)
+
+| Item | Valor |
+|------|-------|
+| VPS | `145.223.27.74` (`srv1269064`) |
+| Domínio | `menugeral.saopaulopecas.com.br` |
+| Health | `https://menugeral.saopaulopecas.com.br/api/health` |
+| Repo na VPS | `/opt/sankhyageral` |
+| App Docker | `/opt/sankhyageral/MENUGERAL` |
+| Container | `menugeral-apesp` |
+| Auto-deploy | cron → `/opt/auto-deploy.sh` (a cada ~2 min) |
+| Deploy manual | `bash /opt/sankhyageral/MENUGERAL/hostinger/scripts/deploy.sh` |
+
+## Pré-requisitos MCP
+
+- **Token:** `API_TOKEN=...` em **`.env` na raiz** do repo (`MENUGERAL/hostinger/mcp.env.example`).
+- **Servidores MCP** (`.cursor/mcp.json`): `hostinger-vps`, `hostinger-dns`, `hostinger-domains`, `hostinger-hosting`.
+- Antes de **`CallMcpTool`**: ler o **schema** do tool em `mcps/project-0-sankhyageral-hostinger-*/tools/`.
+- **Nunca** commitar `.env`, colar token na resposta nem copiar segredos de `hostinger/docs/REF-MENUGERAL_TabelasUpdate.md`.
+
+## Cenário A — deploy / verificar MENUGERAL (padrão)
+
+Quando o utilizador manda **@gohostinger** sem qualificador, ou fala em **deploy**, **subir VPS**, **menugeral**, **produção**:
+
+### A1 — Git local (repo `sankhyageral`)
+
+```powershell
+Set-Location 'c:\projetos\sankhyageral'; git rev-parse --abbrev-ref HEAD; git status --short; git log origin/main..HEAD --oneline
+```
+
+- Se houver alterações **não commitadas** ou commits **à frente** de `origin/main` → executar **`@gopush`** primeiro (ou avisar que o deploy na VPS só vê o que está no remoto).
+- **Não** incluir `docker-compose.override.yml` da VPS no commit (ficheiro local na VPS, gitignored).
+
+### A2 — Health público (sem SSH)
+
+```powershell
+try { (Invoke-WebRequest -Uri 'https://menugeral.saopaulopecas.com.br/api/health' -UseBasicParsing -TimeoutSec 15).StatusCode } catch { $_.Exception.Message }
+```
+
+### A3 — MCP VPS (leitura)
+
+Servidor: **`project-0-sankhyageral-hostinger-vps`**
+
+Ordem sugerida:
+
+1. `VPS_getVirtualMachinesV1` — confirmar VM ativa
+2. `VPS_getVirtualMachineDetailsV1` — se souber o ID da VM
+3. `VPS_getMetricsV1` — CPU/RAM/disco se pedido de diagnóstico
+4. `VPS_getActionsV1` — ações recentes (deploy/restart)
+
+### A4 — Deploy na VPS
+
+**Preferência:** auto-deploy (já no cron) — após **GOPUSH**, aguardar 2–4 min e repetir **A2**.
+
+**Deploy manual imediato** (só se o utilizador pedir ou auto-deploy falhar):
+
+- Requer **SSH** à VPS (o MCP Hostinger **não** executa `docker compose` no servidor).
+- Comando remoto:
+
+```bash
+bash /opt/sankhyageral/MENUGERAL/hostinger/scripts/deploy.sh
+```
+
+- Log auto-deploy na VPS: `tail -n 80 /var/log/auto-deploy.log`
+
+### Resposta ao utilizador — checklist mínimo
+
+- **Git:** limpo / push ok / commits pendentes
+- **Health:** HTTP ok ou erro
+- **VPS (MCP):** estado resumido (running, métricas se pedido)
+- **Deploy:** auto-deploy aguardado / manual executado / instrução SSH
+- **Próximo passo:** só se algo falhou (1 linha)
+
+## Cenário B — DNS
+
+Palavras-chave: **dns**, **registro**, **A/CNAME**, **saopaulopecas**
+
+Servidor: **`project-0-sankhyageral-hostinger-dns`**
+
+1. `DNS_getDNSRecordsV1` — listar antes de alterar
+2. Alterações (`DNS_updateDNSRecordsV1`, `DNS_deleteDNSRecordsV1`, `DNS_resetDNSRecordsV1`) **só** com pedido explícito do utilizador
+3. Preferir `DNS_validateDNSRecordsV1` antes de aplicar mudanças grandes
+
+## Cenário C — domínios
+
+Palavras-chave: **domínio**, **nameserver**, **whois**, **forwarding**
+
+Servidor: **`project-0-sankhyageral-hostinger-domains`**
+
+- Leitura: `domains_getDomainListV1`, `domains_getDomainDetailsV1`
+- Compras, lock, privacy, forwarding: **só** com confirmação explícita
+
+## Cenário D — hosting Hostinger (não VPS Docker)
+
+Palavras-chave: **site estático**, **wordpress**, **hostinger hosting**, **deploy js**
+
+Servidor: **`project-0-sankhyageral-hostinger-hosting`**
+
+- Listar: `hosting_listWebsitesV1`
+- Deploy estático/JS/WordPress: usar tools `hosting_deploy*` conforme schema
+- **Distinto** do MENUGERAL Docker na VPS — não misturar fluxos
+
+## Proibições (VPS)
+
+**Não** invocar via MCP, salvo pedido **explícito** do utilizador:
+
+- `VPS_stopVirtualMachineV1`, `VPS_restartVirtualMachineV1`, `VPS_recreateVirtualMachineV1`
+- `VPS_deleteSnapshotV1`, `VPS_restoreBackupV1`, `VPS_setRootPasswordV1`
+- Qualquer operação destrutiva em DNS/domínios
+
+## Proibições comuns
+
+Ver **`_go-common.mdc`**. Adicionalmente:
+
+- **Não** alterar `docker-compose.override.yml` na VPS via Git
+- **Não** expor conteúdo de `.env`, `jsessionid.txt` ou docs confidenciais
+- Executar **sem hesitação** quando o cenário estiver claro (A–D)
+
+## Relação com outras regras
+
+| Gatilho | Quando usar antes/depois |
+|---------|--------------------------|
+| **GOPUSH** / **@gopush** | Código MENUGERAL alterado → push **antes** do deploy |
+| **GOHOSTINGER** / **@gohostinger** | Deploy, health, DNS, VPS (este ficheiro) |
+| **GOZIP** / **GOZIPUSH** | Dashboards Sankhya HTML — **não** substituem deploy MENUGERAL |
+
+---
+
+**HISTÓRICO DE ALTERAÇÕES (regra)**
+
+- 22/05/2026 Sexta: GOHOSTINGER criado — deploy MENUGERAL VPS + MCP Hostinger (VPS/DNS/domínios/hosting).

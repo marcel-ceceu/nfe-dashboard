@@ -1,0 +1,46 @@
+---
+description: GOHIST — inserir linha de HISTÓRICO DE ALTERAÇÕES nos ficheiros M; formato, HISTDATE e guarda anti-duplicação
+alwaysApply: false
+---
+
+# GOHIST — Histórico de alterações nos ficheiros modificados
+
+## Gatilhos
+
+- **GOHIST**, **@gohist**
+- Também invocado internamente por **GOZIPUSH** (Passo 3) e **GOJAR** (modo padrão com histórico).
+
+## Quando aplicar
+
+Se existirem ficheiros **M** na saída de `git status --short`: para **cada** um que tenha bloco `HISTÓRICO DE ALTERAÇÕES` (ou equivalente), inserir **uma linha** no bloco.
+
+Se **não** houver **M**: não editar fontes — indicar no checklist "nenhum M — histórico não aplicado".
+
+## Obter HISTDATE
+
+Antes de editar, obter data/hora via Shell (se ainda não obtida nesta execução):
+
+```powershell
+Write-Output "HISTDATE=$(Get-Date -Format 'dd/MM/yyyy HH:mm')"
+```
+
+## Formato da linha
+
+```
+DD/MM/AAAA HH:MM DiaDaSemana: Descrição breve da alteração
+```
+
+- **DD/MM/AAAA HH:MM** — valor de `HISTDATE=` da saída do Shell.
+- **DiaDaSemana** — em português, coerente com a data (ex.: Segunda, Terça, …, Domingo).
+- **Descrição** — frase curta alinhada à alteração do ficheiro nesta conversa.
+
+Inserir **após a última entrada** existente no bloco, **antes** da linha de fecho (`====…` ou `-->` ou equivalente).
+
+## Guarda anti-duplicação
+
+Antes de inserir linha num ficheiro **M**:
+
+1. Observar a **última entrada** do bloco `HISTÓRICO DE ALTERAÇÕES` desse ficheiro.
+2. Se a última entrada já tem a **mesma data** (`DD/MM/AAAA` igual ao HISTDATE) **e** foi inserida **nesta mesma conversa** (mesma feature/tarefa):
+   → **Apenas atualizar o `HH:MM`** para o valor de HISTDATE. **Não** adicionar linha nova.
+3. Caso contrário (data diferente **ou** feature diferente) → inserir normalmente.

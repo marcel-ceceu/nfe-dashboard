@@ -1,0 +1,69 @@
+---
+description: GOZIP — só ZIP do HTML de distribuição (dist/ ou PAS DIST/) para deploy Sankhya; sem git, GOHIST nem build
+alwaysApply: false
+---
+
+# GOZIP — ZIP para deploy (fluxo leve)
+
+Compacta **um** ficheiro `.html` de distribuição para `Downloads\` com timestamp. **Não** executa `git`, **GOHIST**, **GOPUSH** nem `node build.js`.
+
+**Gatilhos:** **GOZIP**, **@gozip** (alias legado: **GOZIPDIST**, **@gozipdist** — mesmo fluxo).
+
+**Resposta ao utilizador:** apenas **ZIP=**, **SIZE=** e o caminho do **HTML fonte** (1 linha). **Não** acrescentar notas sobre build, Git ou histórico.
+
+## Documento de distribuição
+
+- Projeto modular legado: **`dist/<nome>.html`** (ou único `.html` em `dist/`).
+- Projeto **PAS** (ver **`estrutura-pas-projeto-dashboard.mdc`**): **`<numero>(PAS)-<nome>/DIST/(DIST)<numero>-<nome>.html`**.
+- O ZIP é **sempre** o artefato de **distribuição** do dashboard em contexto na conversa — **não** o HTML em `SRC/` salvo pedido explícito de outro `.html`.
+- O ficheiro **em foco no editor** **não** substitui o projeto fixado por `@`, pasta ou mensagens recentes.
+
+## Alvo — prioridade (parar no primeiro aplicável)
+
+1. **`@` ou caminho** para um **`.html`** → ZIP desse ficheiro. `BASE_SEM_EXTENSAO` = nome sem `.html`.
+2. **`@` pasta do projeto** (sem `.html` no path) → resolver `dist/` ou `DIST/`:
+   - Um só `.html` → usar esse.
+   - Vários → preferir nome alinhado à pasta do projeto; se ambíguo → **perguntar**.
+3. **Contexto da conversa** (dashboard nomeado nas mensagens recentes) → `dist/` ou `DIST/` **desse** projeto.
+4. **Último recurso:** ficheiro em **foco**, anexo ou mencionado **nesta** mensagem — modular → subpasta `dist/` ou `DIST/`.
+5. **Ambíguo** → pedir `@` com `.html` ou pasta; **não** inventar.
+
+**Proibido:** ZIP do HTML em foco quando a conversa fixou **outro** projeto.
+
+Pedido **@gozip** genérico sem contexto → **4** ou perguntar; não assumir projeto aleatório.
+
+## Execução — 1 Shell
+
+Substituir `<CAMINHO_COMPLETO_HTML>` e `<BASE_SEM_EXTENSAO>`. Caminho absoluto; extensão **`.html`** minúscula (ver **`html-extensao-minuscula-gramisso.mdc`**).
+
+```powershell
+$ts = Get-Date -Format 'yyyy-MM-dd HHmmss'; $dest = Join-Path $env:USERPROFILE "Downloads\<BASE_SEM_EXTENSAO> $ts.zip"; Compress-Archive -LiteralPath '<CAMINHO_COMPLETO_HTML>' -DestinationPath $dest -Force; $item = Get-Item $dest; Write-Output "ZIP=$($item.FullName)"; Write-Output "SIZE=$($item.Length)"
+```
+
+- **Uma** `Compress-Archive` por execução.
+- **Não** `git` nesta Shell.
+- **Não** `git rev-parse` nem resolver `<RAIZ_REPO>` — GOZIP não usa Git.
+
+## Proibições
+
+Ver **`_go-common.mdc`** onde couber. Adicionalmente:
+
+- **Não** segundo ZIP na mesma execução.
+- **Não** GOHIST, GOPUSH, `git status`, commit ou push neste fluxo.
+- **Não** incluir `node build.js` (usar **`dash-src-build.mdc`** ao editar `src/`, ou pedido explícito de build).
+- **Não** grep/validação de versão no DIST salvo o utilizador pedir.
+- Executar **sem hesitação** quando o alvo estiver claro.
+
+## Relação com outras regras
+
+| Gatilho | Efeito |
+|---------|--------|
+| **GOZIP** / **@gozip** | Só ZIP (este ficheiro) |
+| **GOPUSH** / **@gopush** | Só Git |
+| **GOZIPUSH** / **@gozipush** | ZIP (Passo 1 = **GOZIP**) + GOHIST + GOPUSH |
+
+---
+
+**HISTÓRICO DE ALTERAÇÕES (regra)**
+
+- 20/05/2026 Quarta: GOZIP criado — ZIP leve para deploy; aliases GOZIPDIST; sem Git/build.

@@ -1,0 +1,51 @@
+# Perguntas ao utilizador — formato card no chat (clicável)
+
+## Quando aplicar
+
+Sempre que for necessário **perguntas de esclarecimento** antes de implementar (UX, dados mock, prioridades), apresentar as perguntas no **chat** em blocos com **efeito card**, com opções que o utilizador possa **marcar com o rato** quando o painel suportar listas de tarefas Markdown.
+
+## Formato obrigatório
+
+- **Um bloco por pergunta** (`---` + título **Card N**).
+- Cada opção deve ser uma **lista de tarefas Markdown**: `- [ ] **A)** texto` (uma linha por opção).
+- O utilizador **clica na caixa** da opção escolhida (onde o cliente de chat permitir interação com checkboxes).
+- Incluir no fim do lote: *Se as caixas não forem clicáveis, responda com texto, ex.: `1B 2A`.*
+- Manter texto **em português** (salvo pedido em outro idioma).
+- Se o fluxo for “perguntas primeiro, código depois”, **esperar** as respostas antes de implementar.
+
+## Porquê `- [ ]`
+
+Em muitos ambientes (Composer, alguns previews Markdown), as caixas `- [ ]` / `- [x]` são **alternáveis com o rato**, o que substitui copiar letras manualmente.
+
+## Modelo (copiar estrutura)
+
+```markdown
+---
+
+**Card 1 — &lt;título da pergunta&gt;**
+
+&lt;enunciado opcional&gt;
+
+- [ ] **A)** …
+- [ ] **B)** …
+- [ ] **C)** …
+
+---
+
+**Card 2 — &lt;título&gt;**
+
+- [ ] **A)** …
+- [ ] **B)** …
+
+---
+
+*Se as caixas não forem clicáveis neste painel, responda: `1? 2?` (ex.: `1B 2A`).*
+```
+
+## Plan mode
+
+No **Plan mode** do Cursor o utilizador pode marcar opções no fluxo do plano; se as caixas não forem clicáveis, responder em texto (`1X 2Y`).
+
+## Nota
+
+Isto é apenas **apresentação no chat**; não implica componente UI no dashboard, salvo o utilizador pedir o mesmo estilo na aplicação.

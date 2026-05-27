@@ -1,0 +1,134 @@
+---
+description: GOZIPUSH — ZIP do HTML em dist/ do projeto em contexto na conversa + GOHIST + GOPUSH; foco do Cursor nunca substitui esse alvo
+alwaysApply: false
+---
+
+# GOZIPUSH — ZIP, histórico e push num fluxo
+
+Encadeia **em ordem**: (1) **ZIP** do artefato HTML escolhido, (2) **HISTDATE** + **`git status --short`**, (3) **GOHIST** nos ficheiros **M**, (4) fluxo **GOPUSH**.
+
+Este fluxo **não** inclui `node build.js` (isso fica em **`dash-src-build.mdc`** quando o agente edita `src/`). O ZIP usa o artefato já existente em `dist/` (ou o HTML indicado).
+
+**Resposta ao utilizador:** **não** acrescentar notas do tipo *«não foi executado o build»*, *«node build.js não foi rodado»* ou *«garanta o dist atualizado»* — são redundantes e não fazem parte do checklist GOZIPUSH.
+
+## Gatilhos
+
+- **GOZIPUSH**, **@gozipush**
+
+## Regra fixa — documento de distribuição e contexto da conversa
+
+- O Passo 1 compacta **sempre** o **documento de distribuição** do dashboard que está em **contexto nesta conversa** — em projetos modulares (`src/` + `dist/` + `build.js`), o ficheiro **`dist/<nome>.html`** (salvo indicação explícita em contrário com `@` para outro `.html`).
+- Projetos na convenção **PAS** (ver **`.cursor/rules/estrutura-pas-projeto-dashboard.mdc`**): o HTML de entrega situa-se em **`<numero>(PAS)-<nome>/DIST/(DIST)<numero>-<nome>.html`** (ex.: `1230(PAS)-CMCCMV/DIST/(DIST)1230-CMCCMV.html`), salvo path equivalente indicado pelo utilizador; a **prioridade de contexto** da conversa (`@`, pasta do projeto) mantém-se acima do ficheiro em foco no editor.
+- O **separador ativo / ficheiro em destaque no Cursor** **não** define o alvo do ZIP quando a conversa já fixou um projeto (via `@`, pasta, ficheiro, ou mensagens recentes sobre esse dashboard). **Independente** de qual outro ficheiro esteja aberto no IDE, aplicar apenas a prioridade abaixo.
+- O fallback “foco no editor” (§4) só se usa quando **nenhum** dos critérios 1–3 é aplicável de forma segura — **nunca** para sobrepor o projeto da conversa.
+
+## Alvo do ZIP — prioridade (ordem fixa)
+
+O agente deve percorrer **de cima para baixo** e parar no **primeiro** critério aplicável.  
+**Erro comum a evitar:** usar o `.html` **em foco no editor** ou noutro projeto aberto quando o utilizador já indicou **outro** destino via `@`, pasta ou contexto da mensagem.
+
+### 1. Ficheiro `.html` explícito (preferido)
+
+- Caminho completo ou **`@`** apontando para um **`.html`** (em `dist/` ou não).
+- O ZIP é **esse** ficheiro. `BASE_SEM_EXTENSAO` = nome do ficheiro sem `.html`.
+
+### 2. Pasta do projeto com `@` (sem ficheiro no path)
+
+- Ex.: `@.../CONFEREXT-ConferenciaExtratoInfinite1426/` ou `@.../MeuDash/` — o utilizador escolheu **o projeto**, não "o que estiver aberto".
+- Resolver o artefato modular:
+  - Existe `dist/` com `.html` → ZIP = **`dist/<nome>.html`**.
+  - Heurística: preferir o `.html` cujo **nome base** coincide com o **nome da pasta** do projeto; se existir **só um** `.html` em `dist/`, usar esse; se vários sem correspondência óbvia → **perguntar** qual.
+- **Não** substituir por outro HTML só porque está em foco noutro separador.
+
+### 3. Contexto da conversa (sem path no pedido atual)
+
+- Se as mensagens **recentes** referirem **claramente** um dashboard/projeto (troca de ideias, nome da pasta, CORREÇÃO, etc.), o ZIP deve ser o **`dist/<nome>.html`** desse projeto (mesmo que outro `.html` esteja em foco no Cursor).
+- **Não** preferir o ficheiro em foco se ele pertencer a **outro** projeto que **não** é o da conversa.
+
+### 4. Fallback — ficheiro em foco / anexo
+
+- **Último recurso:** só quando **nenhum** dos itens 1–3 se aplica de forma segura (pedido genérico isolado, sem `@`, sem conversa útil).
+- Ficheiro **em foco no editor**, **anexado** ao pedido, ou mencionado como alvo **nesta** mensagem.
+- A partir do caminho `P`: modular (`dist/` do mesmo projeto) vs HTML único — regra igual à secção 2 (sub-`dist/`).
+
+### 5. Ambiguidade
+
+- Se continuar **ambíguo** (vários `dist/` plausíveis, ou conversa a falar de A e editor em B) → **pedir** `@` com o `.html` ou a **pasta do projeto**; **não** inventar nem defaultar ao foco.
+
+### Compatibilidade com o pedido “genérico” GOZIPUSH
+
+- `@gozipush` **sem** mais contexto **e** sem conversa útil → usar **4** (foco/anexo) **ou** perguntar, em vez de assumir um projeto aleatório; **não** usar o foco se a conversa anterior tiver identificado um dashboard.
+
+### Proibição explícita
+
+- **Proibido** compactar o HTML do editor em foco quando o utilizador (ou a conversa) fixou **outro** projeto via **`@` pasta**, **`@` projeto** ou ficheiro explícito noutro caminho.
+
+### Resolução de `<RAIZ_REPO>`
+
+Ver **`_go-common.mdc`**. Com fallback de contexto: aplicar `git rev-parse` a partir do caminho final do HTML a zipar.
+
+## Passo 1 — ZIP (1 Shell, primeiro)
+
+Executar o fluxo **GOZIP** conforme **`gozip.mdc`** (alvo + comando). Substituir `<CAMINHO_COMPLETO_HTML>` e `<BASE_SEM_EXTENSAO>`.
+
+```powershell
+$ts = Get-Date -Format 'yyyy-MM-dd HHmmss'; $dest = Join-Path $env:USERPROFILE "Downloads\<BASE_SEM_EXTENSAO> $ts.zip"; Compress-Archive -LiteralPath '<CAMINHO_COMPLETO_HTML>' -DestinationPath $dest -Force; $item = Get-Item $dest; Write-Output "ZIP=$($item.FullName)"; Write-Output "SIZE=$($item.Length)"
+```
+
+- **Uma** `Compress-Archive` por execução (não segundo ZIP).
+- **Não** `git` nesta Shell.
+- **Extensão do ficheiro:** o caminho em `<CAMINHO_COMPLETO_HTML>` deve usar **`.html`** em minúsculas (Gramisso / deploy). Ver **`html-extensao-minuscula-gramisso.mdc`**; se o alvo estiver como `.HTML`, corrigir o nome no Git antes de ZIPar.
+
+## Passo 2 — HISTDATE + status (1 Shell)
+
+```powershell
+Set-Location '<RAIZ_REPO>'; Write-Output "HISTDATE=$(Get-Date -Format 'dd/MM/yyyy HH:mm')"; git status --short
+```
+
+## Passo 3 — GOHIST (edição, não Shell)
+
+Aplicar **`gohist.mdc`** nos ficheiros **M** da saída do Passo 2 (formato, HISTDATE e guarda anti-duplicação).
+
+## Passo 4 — GOPUSH
+
+Executar **GOPUSH** conforme **`gopush.mdc`**. Mensagem: texto explícito do utilizador ou fallback IA (ver `_go-common.mdc`). Se conflito no pull: parar e reportar.
+
+### Untracked (`??`) — processo normal
+
+- O fluxo **normal** do GOPUSH é **`git add -A`** na `<RAIZ_REPO>` (tal como **`gopush.mdc`**), o que **inclui** ficheiros e pastas **untracked** (`??`) no mesmo commit, juntamente com modificados (`M`), novos já staged, renomeações e remoções.
+- No **GOZIPUSH**, **não** usar por defeito `git add` só a subpastas nem **omitir** `??` para “limpar” o status: tratar o working tree de forma **completa**, salvo indicação **explícita** do utilizador em contrário nessa execução.
+- Se após o push ainda existirem `??`, é porque estão **fora** do repo, **ignorados** por `.gitignore`, ou houve falha no add — reportar no checklist se relevante.
+
+## Resposta ao utilizador — checklist mínimo
+
+- **ZIP:** caminho (`ZIP=`) e tamanho (`SIZE=`).
+- **Histórico:** quantos ficheiros **M** receberam linha (ou nenhum M).
+- **Commit:** hash curto + mensagem; ou nada a commitar / working tree limpa (inclui untracked absorvidos por `git add -A` quando aplicável).
+- **Pull / Push:** ok ou conflito.
+
+## Proibições
+
+Ver **`_go-common.mdc`** (proibições comuns). Adicionalmente:
+
+- **Não** segundo ZIP na mesma execução.
+- **Não** incluir `node build.js` como passo deste fluxo (ver nota no início e **`dash-src-build.mdc`** para quando o build for obrigatório noutro contexto).
+- **Não** explicar ou justificar na resposta final a ausência de `node build.js`.
+- Executar **sem hesitação** ao receber o gatilho com alvo válido.
+
+## Relação com outras regras
+
+- **GOZIP** / **@gozip** — só ZIP (ver **`gozip.mdc`**); preferir para deploy Sankhya sem Git.
+- **GOPUSH** — só commit/push; GOZIPUSH acrescenta ZIP + GOHIST antes.
+
+---
+
+**HISTÓRICO DE ALTERAÇÕES (regra)**
+
+- 14/04/2026 22:04 Terça: Prioridade do alvo do ZIP reordenada (`@` HTML → `@` pasta/projeto → conversa → foco); proibição de ZIP do editor quando outro projeto foi referenciado; compatibilidade pedido genérico.
+- 15/04/2026 Quarta: Regra fixa — ZIP sempre no HTML de `dist/` do projeto em contexto na conversa; foco do Cursor não substitui o alvo; §4 apenas último recurso.
+- 15/04/2026 09:12 Quarta: GOZIPUSH — ZIP dist CONFEREXT1426; GOPUSH em lote com debugador v2.2 e REF.
+- 17/04/2026 Sexta: Passo 4 — processo normal com `git add -A` na raiz para incluir untracked (`??`); não omitir por defeito.
+- 17/04/2026 10:57 Sexta-feira: GOZIPUSH (regra + GOPUSH com `git add -A`).
+- 27/04/2026 16:44 Segunda-feira: Passo 1 — nota extensão `.html` minúscula (Gramisso); referência `html-extensao-minuscula-gramisso.mdc`.
+- 18/05/2026 12:43 Segunda: Regra fixa — projetos PAS, HTML em `numero(PAS)-nome/DIST/(DIST)slug.html`; ver `estrutura-pas-projeto-dashboard.mdc`.
+- 20/05/2026 Quarta: Passo 1 delegado a **`gozip.mdc`** (GOZIP); GOZIPDIST renomeado para GOZIP.

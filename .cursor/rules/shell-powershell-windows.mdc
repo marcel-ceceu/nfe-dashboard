@@ -1,0 +1,33 @@
+---
+description: PowerShell no Windows — encadear comandos no Shell (evitar &&)
+alwaysApply: true
+---
+
+<!-- HISTÓRICO DE ALTERAÇÕES
+  22/03/2026 18:19 Domingo: Notas de GOPUSH/GOPULL ampliadas para citar GOZIP e GOHIST além de GOZZ
+-->
+
+# Shell — PowerShell no Windows (agente Cursor)
+
+## Problema que evitamos
+
+No **Windows PowerShell 5.x** (shell padrão em muitos ambientes), o operador **`&&` não é válido** para encadear comandos. Usar `cd x && git status` gera **erro de parser** (“token `&&` não é separador válido”).
+
+## O que fazer
+
+- Encadear com **ponto e vírgula** (`;`) na **mesma** chamada Shell:
+
+```powershell
+Set-Location "c:\projetos\sankhyageral"; git add -A; git commit -m "<RESUMO>"; git push
+```
+
+- Se o cwd já for a raiz do repositório, pode omitir `Set-Location`:
+
+```powershell
+git add -A; git commit -m "<RESUMO>"; git push
+```
+
+## Notas
+
+- No **PowerShell 7+** (`pwsh`), `&&` existe; neste workspace, as regras **GOPUSH**, **GOPULL**, **GOZIP** e **GOHIST** usam **`;`** de propósito para funcionar em qualquer versão.
+- **Uma única chamada Shell** com vários comandos separados por `;` conta como **1 invocação** (atende GOPUSH / limites de chamadas).

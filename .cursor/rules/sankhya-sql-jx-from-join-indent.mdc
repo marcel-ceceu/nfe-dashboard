@@ -1,0 +1,47 @@
+---
+description: SQL executado via JX.consultar — indentar FROM/JOIN/WHERE/GROUP/ORDER para nao colar tokens apos strip de newlines (OBRIGATORIO)
+alwaysApply: true
+---
+
+# SQL para `JX.consultar` — padrao obrigatorio (anti-colagem)
+
+## Por que existe esta regra
+
+No browser, **`JX.consultar` remove todas as quebras de linha** do texto da query **sem** inserir espacos (`query.replace(/(\r\n|\n|\r)/gm, '')` em `1.0-Sankhya/3. Regras e Modelos/3.2- Ref Dash HTML/Jx e JS/jx.js`).
+
+- O **mesmo** SQL **multilinha** pode correr bem no **DB Explorer**.
+- Via **JX**, identificadores e palavras-chave em **linhas consecutivas sem espaco entre eles** viram **um token so** → **ORA-00923**, **SELECT invalido**, etc.
+
+Documentacao no repo: `1.0-Sankhya/3. Regras e Modelos/RegrasSankhyaBancoDados/RefNegociacaoCascata.txt` (secao 8, ponto 5 — strip de newlines).
+
+**Comentarios SQL:** ver **`sankhya-sql-jx-comentarios.mdc`** (sem `--` no topo, cuidado com `/* */`).
+
+## O que e OBRIGATORIO ao editar SQL embutido em dashboards
+
+Em ficheiros `sql-n*.sql`, strings/templates que vao para **`JX.consultar`** / **DbExplorerSP** (build → `dist/*.html`):
+
+1. **Apos o ultimo item do `SELECT` (ou do ultimo campo num sub-`SELECT` dentro de `WITH`),** a linha seguinte que comeca por **`FROM`**, **`JOIN`**, **`LEFT JOIN`**, **`INNER JOIN`**, **`RIGHT JOIN`**, **`WHERE`**, **`GROUP BY`**, **`HAVING`**, **`ORDER BY`** nao pode estar na **coluna 0** “colada” ao fim logico da linha anterior.
+2. **Padrao aprovado neste repo:** alinhar essas palavras-chave com **a mesma indentacao dos campos do `SELECT`** (ex.: quatro espacos antes de `FROM` / `JOIN` / `WHERE` / …), como no **Dash 2** de `1819-GERENMASTER-RelatorioAdm`.
+3. **Alternativa valida:** query numa **unica linha** com **espacos explicitos** entre todos os tokens (menos legivel; so se o projeto ja usar esse estilo).
+4. **Auto-verificacao mental antes de gravar:** imaginar o SQL **numa so linha** (apagar mentalmente `\n`). Se aparecer sequencias como `IPITTFROM`, `CABJOIN`, `CODEMPWHERE`, `ITELEFT`, `APELIDOFROM`, o SQL **esta errado** para JX.
+
+## O que NAO fazer
+
+- Colocar `FROM` / `JOIN` / `WHERE` / `GROUP BY` / `ORDER BY` no inicio da linha **logo apos** uma linha que termina em alias ou identificador (`AS IPITT` seguido de `FROM` sem indentacao nem espaco em colagem).
+- Assumir que “funciona no Explorer” implica “funciona no JX” — **nao implica** enquanto o strip existir.
+
+## Ao criar ou alterar visoes / SQL de dash
+
+- Aplicar o padrao em **todos** os niveis (`sql-n1`, `sql-n2`, …) e em **subconsultas** dentro de `WITH` (cada bloco `SELECT` interno: ultima expressao + `FROM` indentado como os campos).
+- Depois de mudar `src/`, quando existir **`build.js`**, rodar **`node build.js`** para alinhar o `dist/` (ver **`dash-src-build.mdc`**).
+
+## Referencia rapida de colagens comuns (evitar)
+
+| Antes do strip (linhas) | Depois (invalido) |
+|---------------------------|-------------------|
+| `... AS IPITT` + `\n` + `FROM` | `... AS IPITTFROM` |
+| `... CAB` + `\n` + `JOIN TGFITE` | `... CABJOIN TGFITE` (token invalido) |
+| `... CODEMP` + `\n` + `WHERE` | `... CODEMPWHERE` |
+| `... ITE` + `\n` + `LEFT JOIN` | `... ITELEFT` + … |
+
+**Indentacao do `FROM` na linha seguinte** preserva espaco entre o ultimo token indentado e `FROM`.

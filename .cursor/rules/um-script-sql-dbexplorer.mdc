@@ -1,0 +1,55 @@
+---
+description: Scripts SQL para DB Explorer — consulta unificada (UNION ALL) em vez de vários SELECTs soltos; padrão de fases rotuladas
+alwaysApply: true
+---
+
+# SQL no DB Explorer — um script, uma execução
+
+Ao gerar SQL para **testes, diagnóstico ou inspeção** no **DB Explorer** (Sankhya / Oracle), **evitar** obrigar o utilizador a executar **vários `SELECT` um a um** — é moroso e desgastante.
+
+## O que fazer
+
+- **Preferir um único script** que devolva tudo o necessário numa só ida.
+- Usar **`UNION ALL`** (ou técnica equivalente) com **coluna de fase/etiqueta** para identificar cada bloco no resultado.
+- Manter colunas alinhadas (usar `''` ou `TO_CHAR` onde faltar valor) para o `UNION ALL` ser válido.
+
+## O que evitar
+
+Não desmembrar em quatro execuções separadas quando o objetivo é o mesmo contexto (ex.: auditar uma tabela AD_):
+
+1. `SELECT * FROM TDDTAB WHERE NOMETAB = '...'`
+2. `SELECT ... FROM TDDCAM WHERE NOMETAB = '...'`
+3. `SELECT ... FROM USER_TAB_COLUMNS WHERE TABLE_NAME = '...'`
+4. `SELECT MAX(NUCAMPO) FROM TDDCAM`
+
+## Padrão de exemplo (dicionário + físico + máximo NUCAMPO)
+
+Substituir `AD_CODTIPMOVINFINITE` pelo objeto em análise:
+
+```sql
+-- ============================================================
+-- COLETA UNIFICADA — AD_CODTIPMOVINFINITE (ajustar NOMETAB)
+-- ============================================================
+
+-- TDDTAB | TDDCAM | USER_TAB_COLUMNS | MAX(NUCAMPO) numa só consulta
+SELECT '2.1-TDDTAB' AS FASE, NOMETAB AS COL1, '' AS COL2, '' AS COL3, '' AS COL4, '' AS COL5
+FROM TDDTAB WHERE NOMETAB = 'AD_CODTIPMOVINFINITE'
+UNION ALL
+SELECT '2.2-TDDCAM', NOMECAMPO, TO_CHAR(NUCAMPO), DESCRCAMPO, TIPCAMPO, TO_CHAR(ORDEM)
+FROM TDDCAM WHERE NOMETAB = 'AD_CODTIPMOVINFINITE'
+UNION ALL
+SELECT '2.3-FISICO', COLUMN_NAME, DATA_TYPE, TO_CHAR(DATA_LENGTH), NULLABLE, TO_CHAR(COLUMN_ID)
+FROM USER_TAB_COLUMNS WHERE TABLE_NAME = 'AD_CODTIPMOVINFINITE'
+UNION ALL
+SELECT '2.4-MAXNUCAMPO', TO_CHAR(MAX(NUCAMPO)), '', '', '', ''
+FROM TDDCAM;
+```
+
+## Notas
+
+- A coluna **`FASE`** (ou nome equivalente) permite filtrar mentalmente ou no Excel/export sem confundir blocos.
+- Para outros cenários (views, contagens, amostras), aplicar a **mesma ideia**: um script, várias secções com `UNION ALL` e rótulos, em vez de múltiplos ficheiros ou passos manuais.
+
+## Referência
+
+Documento de origem no repositório: `.cursor/RegraCursor-UmScriptSQLDBExplorer`.
