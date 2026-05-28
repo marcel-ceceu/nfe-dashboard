@@ -40,6 +40,52 @@ const diasAtras = (d: number) => {
   return dt.toISOString().slice(0, 10)
 }
 
+const TIPOS_XML_PDF: ('xml' | 'pdf')[] = ['xml', 'pdf']
+
+type SyncProgressFn = (p: { fase: string; atual: number; total: number }) => void
+
+async function sincronizarChaves(
+  chaves: string[],
+  tipos: ('xml' | 'pdf')[],
+  fase: string,
+  onProgress: SyncProgressFn
+) {
+  if (chaves.length === 0) return
+  onProgress({ fase, atual: 0, total: chaves.length })
+  let next: number | null = 0
+  while (next !== null) {
+    const r = await fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chaves, tipos, cursor: next, limit: 20 }),
+    })
+    const j: {
+      total: number
+      cursor: number
+      processadas: number
+      nextCursor: number | null
+      error?: string
+    } = await r.json()
+    if (!r.ok) throw new Error(j.error || 'Erro ao preparar arquivos')
+    onProgress({
+      fase,
+      atual: Math.min(j.cursor + j.processadas, j.total),
+      total: j.total,
+    })
+    next = j.nextCursor
+  }
+}
+
+function chavesPendentesSync(notas: Nota[]): string[] {
+  return notas
+    .filter(
+      (n) =>
+        n.possui_xml === true &&
+        (n.xml_storage !== true || n.pdf_storage !== true)
+    )
+    .map((n) => n.chave_acesso)
+}
+
 export default function Home() {
   const [dataIni, setDataIni] = useState(diasAtras(60))
   const [dataFim, setDataFim] = useState(hoje())
@@ -56,24 +102,28 @@ export default function Home() {
   const [atualizando, setAtualizando] = useState(false)
   const [infoMsg, setInfoMsg] = useState<string | null>(null)
 
+  const buscarNotasApi = useCallback(async (): Promise<Nota[]> => {
+    const params = new URLSearchParams({ dataIni, dataFim })
+    if (busca.trim()) params.set('busca', busca.trim())
+    const r = await fetch('/api/notas?' + params.toString())
+    const j = await r.json()
+    if (!r.ok) throw new Error(j.error || 'Erro ao buscar notas')
+    return j.dados || []
+  }, [dataIni, dataFim, busca])
+
   const carregar = useCallback(async () => {
     setLoading(true)
     setErro(null)
     setSelecionadas(new Set())
     try {
-      const params = new URLSearchParams({ dataIni, dataFim })
-      if (busca.trim()) params.set('busca', busca.trim())
-      const r = await fetch('/api/notas?' + params.toString())
-      const j = await r.json()
-      if (!r.ok) throw new Error(j.error || 'Erro ao buscar notas')
-      setNotas(j.dados || [])
+      setNotas(await buscarNotasApi())
     } catch (e: unknown) {
       setErro(e instanceof Error ? e.message : 'Erro desconhecido')
       setNotas([])
     } finally {
       setLoading(false)
     }
-  }, [dataIni, dataFim, busca])
+  }, [buscarNotasApi])
 
   useEffect(() => {
     carregar()
@@ -115,29 +165,12 @@ export default function Home() {
     setErro(null)
     try {
       // Fase 1: preencher o Supabase Storage em lotes (Espião -> Storage)
-      setProgresso({ fase: 'Preparando arquivos (Espião → Supabase)', atual: 0, total: chaves.length })
-      let next: number | null = 0
-      while (next !== null) {
-        const r: Response = await fetch('/api/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chaves, tipos, cursor: next, limit: 20 }),
-        })
-        const j: {
-          total: number
-          cursor: number
-          processadas: number
-          nextCursor: number | null
-          error?: string
-        } = await r.json()
-        if (!r.ok) throw new Error(j.error || 'Erro ao preparar arquivos')
-        setProgresso({
-          fase: 'Preparando arquivos (Espião → Supabase)',
-          atual: Math.min(j.cursor + j.processadas, j.total),
-          total: j.total,
-        })
-        next = j.nextCursor
-      }
+      await sincronizarChaves(
+        chaves,
+        tipos,
+        'Preparando arquivos (Espião → Supabase)',
+        setProgresso
+      )
 
       // Fase 2: gerar signed URLs em batch
       setProgresso({ fase: 'Gerando links', atual: 0, total: chaves.length })
@@ -197,16 +230,34 @@ export default function Home() {
       })
       const j = await r.json()
       if (!r.ok) throw new Error(j.detalhe || j.error || 'Erro ao atualizar notas')
-      setInfoMsg(
-        `Atualização concluída: ${j.inseridos} nova(s), ${j.atualizados} atualizada(s) no período.`
-      )
+
+      const frescas = await buscarNotasApi()
+      setNotas(frescas)
+
+      const pendentes = chavesPendentesSync(frescas)
+      if (pendentes.length > 0) {
+        await sincronizarChaves(
+          pendentes,
+          TIPOS_XML_PDF,
+          'Sincronizando arquivos',
+          setProgresso
+        )
+      }
+
       await carregar()
+
+      let msg = `Atualização concluída: ${j.inseridos} nova(s), ${j.atualizados} atualizada(s) no período.`
+      if (pendentes.length > 0) {
+        msg += ` ${pendentes.length} nota(s) com arquivos sincronizados no Storage.`
+      }
+      setInfoMsg(msg)
     } catch (e: unknown) {
       setErro(e instanceof Error ? e.message : 'Erro ao atualizar notas')
     } finally {
+      setProgresso(null)
       setAtualizando(false)
     }
-  }, [dataIni, dataFim, carregar])
+  }, [dataIni, dataFim, buscarNotasApi, carregar])
 
   const qtdAlvo = selecionadas.size > 0 ? selecionadas.size : notas.length
 
@@ -283,9 +334,9 @@ export default function Home() {
               onClick={atualizarNotas}
               disabled={atualizando}
               className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Consulta o resumo do período no Espião e grava as notas no Supabase"
+              title="Atualiza notas do Espião e sincroniza XML/DANFE pendentes para o Supabase Storage"
             >
-              {atualizando ? 'Atualizando...' : 'Atualizar do Espião'}
+              {atualizando ? 'Atualizando...' : 'Atualizar XML/PDF'}
             </button>
           </div>
         </div>
@@ -552,7 +603,7 @@ export default function Home() {
                   <li><b>Buscar emitente:</b> filtra por nome (razão social) ou CNPJ. Digite ao menos 2 caracteres.</li>
                   <li>Clique em <b>Buscar</b> (ou tecle <b>Enter</b> no campo de busca) para aplicar os filtros.</li>
                   <li>A consulta traz até <b>500 notas</b> por vez, das mais recentes para as mais antigas.</li>
-                  <li><b>Atualizar do Espião:</b> se a nota (ex.: de ontem) ainda não aparece, clique nesse botão — ele busca as notas do período direto no Espião e grava no banco. Em seguida a lista recarrega.</li>
+                  <li><b>Atualizar XML/PDF:</b> busca notas novas do período no Espião, grava no banco e sincroniza XML/DANFE pendentes para o Supabase Storage (botões verdes na tabela).</li>
                 </ul>
               </section>
 

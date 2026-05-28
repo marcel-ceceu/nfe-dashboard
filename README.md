@@ -12,16 +12,30 @@ Le do Supabase `consultaxml.notas_fiscais` (populado pelo worker) e proxia XML/D
 
 ## Rodar local
 
+**Desenvolvimento** (hot-reload, porta 3000):
+
 ```bash
 npm install
 npm run dev
 ```
 
-Abre em http://localhost:3000
+Ou duplo clique em **`abrir-dash.bat`**.
+
+**Build de distribuição** (`dist/`, modo produção, porta 3001):
+
+```bash
+npm run build:dist
+```
+
+Ou duplo clique em **`abrir-dist.bat`** (gera `dist/` na primeira vez e abre o browser).
+
+> Diferente dos dashboards Sankhya (um `.html` em `dist/`): aqui `dist/` é um **servidor Node** com as API routes. Continua precisando de `.env.local`.
 
 ## Estrutura
 
 ```
+build.js                         # next build + copia standalone -> dist/
+abrir-dash.bat / abrir-dist.bat  # Abrir no browser (dev vs dist)
 src/
 ├── app/
 │   ├── page.tsx                 # Tela principal (filtros + tabela)
@@ -29,10 +43,15 @@ src/
 │   ├── globals.css
 │   └── api/
 │       ├── notas/route.ts       # GET /api/notas?dataIni&dataFim&busca
-│       ├── xml/[chave]/route.ts # GET /api/xml/<chave> -> XML do Espiao
-│       └── pdf/[chave]/route.ts # GET /api/pdf/<chave> -> DANFE PDF do Espiao
+│       ├── atualizar/route.ts   # POST resumo Espião -> notas_fiscais
+│       ├── sync/route.ts        # POST Espião -> Storage
+│       ├── links/route.ts       # POST signed URLs (ZIP)
+│       ├── xml/[chave]/route.ts # GET /api/xml/<chave>
+│       └── pdf/[chave]/route.ts # GET /api/pdf/<chave>
 └── lib/
-    └── supabase.ts              # Cliente server-side (schema consultaxml)
+    ├── supabase.ts
+    └── nfe.ts                   # Espião, Storage, arquivos_nfe
+dist/                            # Gerado (gitignore) — servidor standalone
 ```
 
 ## Credenciais
