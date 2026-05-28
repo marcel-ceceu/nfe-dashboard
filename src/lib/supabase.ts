@@ -1,7 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  throw new Error('Faltam variaveis SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY no .env.local')
+  throw new Error(
+    'Faltam SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY — confira o arquivo .env na raiz do projeto'
+  )
 }
 
 export const supabase = createClient(

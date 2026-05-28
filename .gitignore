@@ -9,12 +9,12 @@ out/
 dist/
 build/
 
-# Environment variables (NUNCA commitar)
-.env
+# Overrides locais (opcional — o .env na raiz já vem preenchido)
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.env.vercel.pull
 
 # Debug logs
 npm-debug.log*

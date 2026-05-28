@@ -126,15 +126,16 @@ if (-not (Test-Path $ServerJs)) {
     exit 1
 }
 
+$envBase = Join-Path $Root '.env'
 $envLocal = Join-Path $Root '.env.local'
-if (Test-Path $envLocal) {
-    Copy-Item $envLocal (Join-Path $Dist '.env.local') -Force
-    Import-DotEnvFile -Path $envLocal
-} elseif (-not (Test-Path (Join-Path $Dist '.env.local'))) {
-    Show-Erro @(
-        'Falta .env.local na raiz do projeto (credenciais Supabase / Espião).',
-        'Copie de .env.example e preencha antes de abrir o dist.'
-    ) -join "`n"
+$envParaDist = if (Test-Path $envLocal) { $envLocal } elseif (Test-Path $envBase) { $envBase } else { $null }
+
+if ($envParaDist) {
+    $nomeEnv = Split-Path -Leaf $envParaDist
+    Copy-Item $envParaDist (Join-Path $Dist $nomeEnv) -Force
+    Import-DotEnvFile -Path $envParaDist
+} else {
+    Show-Erro 'Falta o arquivo .env na raiz do projeto (credenciais Supabase / Espião).'
     exit 1
 }
 

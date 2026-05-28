@@ -48,6 +48,13 @@ if (fs.existsSync(publicSrc)) {
   copiar(publicSrc, path.join(distDir, 'public'))
 }
 
+for (const envName of ['.env', '.env.local']) {
+  const envSrc = path.join(root, envName)
+  if (fs.existsSync(envSrc)) {
+    fs.copyFileSync(envSrc, path.join(distDir, envName))
+  }
+}
+
 fs.writeFileSync(
   path.join(distDir, 'BUILD.json'),
   JSON.stringify(
@@ -66,7 +73,7 @@ fs.writeFileSync(
   [
     'Pasta gerada por: npm run build:dist',
     '',
-    'Servidor Next standalone (porta 3001). Precisa de .env.local — use abrir-dist.bat.',
+    'Servidor Next standalone (porta 3001). Usa .env da raiz — abrir-dist.bat.',
     'Dev com hot-reload: abrir-dash.bat (porta 3000).',
     '',
   ].join('\n')

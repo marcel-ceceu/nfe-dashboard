@@ -29,7 +29,7 @@ npm run build:dist
 
 Ou duplo clique em **`abrir-dist.bat`** (gera `dist/` na primeira vez e abre o browser).
 
-> Diferente dos dashboards Sankhya (um `.html` em `dist/`): aqui `dist/` é um **servidor Node** com as API routes. Continua precisando de `.env.local`.
+> Diferente dos dashboards Sankhya (um `.html` em `dist/`): aqui `dist/` é um **servidor Node** com as API routes. Usa o `.env` da raiz (copiado no build).
 
 ## Estrutura
 
@@ -56,7 +56,11 @@ dist/                            # Gerado (gitignore) — servidor standalone
 
 ## Credenciais
 
-Ja preenchidas em `.env.local`. Para deploy em Vercel, configurar as mesmas vars no painel.
+Já vêm no **`.env`** versionado (Espião + Supabase). Duplo clique em `abrir-dash.bat` — sem copiar ficheiros.
+
+Opcional: `.env.local` sobrescreve só o que precisar (não vai pro Git).
+
+> Repo com segredos: mantenha **privado**. Na Vercel, replique as mesmas variáveis no painel se for deploy.
 
 ## Proximos passos
 
