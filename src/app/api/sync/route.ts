@@ -12,6 +12,7 @@ import {
   fetchPdfFromEspiao,
   uploadXml,
   uploadPdf,
+  registrarArquivo,
 } from '@/lib/nfe'
 
 export const dynamic = 'force-dynamic'
@@ -53,6 +54,7 @@ async function processaItem(chave: string, tipo: Tipo): Promise<Item> {
   try {
     if (tipo === 'xml') {
       if (await storageHasFile(BUCKET_XML, xmlPath(chave))) {
+        await registrarArquivo(chave, 'xml', xmlPath(chave), 'storage')
         return { chave, tipo, status: 'ja_existia' }
       }
       // tenta coluna legada antes do Espião
@@ -71,6 +73,7 @@ async function processaItem(chave: string, tipo: Tipo): Promise<Item> {
       return { chave, tipo, status: 'gravado', detalhe: 'espiao' }
     } else {
       if (await storageHasFile(BUCKET_PDF, pdfPath(chave))) {
+        await registrarArquivo(chave, 'pdf', pdfPath(chave), 'storage')
         return { chave, tipo, status: 'ja_existia' }
       }
       const r = await fetchPdfFromEspiao(chave)

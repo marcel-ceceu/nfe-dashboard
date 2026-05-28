@@ -37,23 +37,46 @@ export async function GET(req: Request) {
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // Enriquecer com xml_local
+  // Enriquecer com xml_local (coluna legada) e flags do Storage (arquivos_nfe)
   let xmlsLocais = new Set<string>()
+  let xmlStorage = new Set<string>()
+  let pdfStorage = new Set<string>()
   if (data && data.length > 0) {
     const chaves = data.map(n => n.chave_acesso)
+
     const { data: locais } = await supabase
       .from('xmls_baixados')
       .select('chave_acesso')
       .in('chave_acesso', chaves)
     if (locais) xmlsLocais = new Set(locais.map(x => x.chave_acesso))
+
+    // Flags do Supabase Storage (degrada sem quebrar se a tabela ainda nao existir)
+    try {
+      const { data: arq } = await supabase
+        .from('arquivos_nfe')
+        .select('chave_acesso, tipo')
+        .in('chave_acesso', chaves)
+      for (const a of arq || []) {
+        if (a.tipo === 'xml') xmlStorage.add(a.chave_acesso)
+        else if (a.tipo === 'pdf') pdfStorage.add(a.chave_acesso)
+      }
+    } catch (e) {
+      console.warn('[notas] arquivos_nfe indisponivel:', (e as Error).message)
+    }
   }
 
-  const enriched = (data || []).map(n => ({ ...n, xml_local: xmlsLocais.has(n.chave_acesso) }))
-  const totalLocal = enriched.filter(n => n.xml_local).length
+  const enriched = (data || []).map(n => ({
+    ...n,
+    xml_local: xmlsLocais.has(n.chave_acesso),
+    xml_storage: xmlStorage.has(n.chave_acesso),
+    pdf_storage: pdfStorage.has(n.chave_acesso),
+  }))
 
   return NextResponse.json({
     dados: enriched,
     count: enriched.length,
-    xmls_locais: totalLocal,
+    xmls_locais: enriched.filter(n => n.xml_local).length,
+    xmls_storage: enriched.filter(n => n.xml_storage).length,
+    pdfs_storage: enriched.filter(n => n.pdf_storage).length,
   })
 }

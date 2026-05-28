@@ -15,6 +15,8 @@ type Nota = {
   ciencia_em: string | null
   possui_xml: boolean
   xml_local?: boolean
+  xml_storage?: boolean
+  pdf_storage?: boolean
 }
 
 type Formato = 'xml' | 'pdf' | 'ambos'
@@ -170,13 +172,16 @@ export default function Home() {
       link.click()
       link.remove()
       URL.revokeObjectURL(url)
+
+      // Atualiza a tabela: os arquivos agora estao no Supabase Storage
+      await carregar()
     } catch (e: unknown) {
       setErro(e instanceof Error ? e.message : 'Erro no download')
     } finally {
       setBaixando(false)
       setProgresso(null)
     }
-  }, [selecionadas, notas, formato, dataIni, dataFim])
+  }, [selecionadas, notas, formato, dataIni, dataFim, carregar])
 
   const qtdAlvo = selecionadas.size > 0 ? selecionadas.size : notas.length
 
@@ -394,34 +399,59 @@ export default function Home() {
                     </td>
                     <td className="px-4 py-2">
                       <div className="flex gap-1 justify-center">
-                        <a
-                          href={(n.possui_xml || n.xml_local) ? `/api/xml/${n.chave_acesso}` : undefined}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={
-                            n.xml_local
-                              ? 'px-2 py-1 text-xs rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 font-medium'
-                              : n.possui_xml
-                                ? 'px-2 py-1 text-xs rounded bg-blue-100 text-blue-700 hover:bg-blue-200'
-                                : 'px-2 py-1 text-xs rounded bg-gray-100 text-gray-400 cursor-not-allowed pointer-events-none'
-                          }
-                          title={n.xml_local ? 'Baixar XML (local - Supabase)' : n.possui_xml ? 'Baixar XML (via Espiao)' : 'XML nao disponivel'}
-                        >
-                          XML
-                        </a>
-                        <a
-                          href={n.possui_xml ? `/api/pdf/${n.chave_acesso}` : undefined}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={
-                            n.possui_xml
-                              ? 'px-2 py-1 text-xs rounded bg-red-100 text-red-700 hover:bg-red-200'
-                              : 'px-2 py-1 text-xs rounded bg-gray-100 text-gray-400 cursor-not-allowed pointer-events-none'
-                          }
-                          title={n.possui_xml ? 'Visualizar DANFE' : 'DANFE não disponível'}
-                        >
-                          DANFE
-                        </a>
+                        {(() => {
+                          const xmlNoSupabase = n.xml_storage || n.xml_local
+                          const xmlDisponivel = xmlNoSupabase || n.possui_xml
+                          return (
+                            <a
+                              href={xmlDisponivel ? `/api/xml/${n.chave_acesso}` : undefined}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={
+                                xmlNoSupabase
+                                  ? 'px-2 py-1 text-xs rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 font-medium'
+                                  : n.possui_xml
+                                    ? 'px-2 py-1 text-xs rounded bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                    : 'px-2 py-1 text-xs rounded bg-gray-100 text-gray-400 cursor-not-allowed pointer-events-none'
+                              }
+                              title={
+                                xmlNoSupabase
+                                  ? 'Baixar XML (no Supabase)'
+                                  : n.possui_xml
+                                    ? 'Baixar XML (via Espião, será guardado no Supabase)'
+                                    : 'XML não disponível'
+                              }
+                            >
+                              XML
+                            </a>
+                          )
+                        })()}
+                        {(() => {
+                          const pdfDisponivel = n.pdf_storage || n.possui_xml
+                          return (
+                            <a
+                              href={pdfDisponivel ? `/api/pdf/${n.chave_acesso}` : undefined}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={
+                                n.pdf_storage
+                                  ? 'px-2 py-1 text-xs rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 font-medium'
+                                  : n.possui_xml
+                                    ? 'px-2 py-1 text-xs rounded bg-red-100 text-red-700 hover:bg-red-200'
+                                    : 'px-2 py-1 text-xs rounded bg-gray-100 text-gray-400 cursor-not-allowed pointer-events-none'
+                              }
+                              title={
+                                n.pdf_storage
+                                  ? 'Visualizar DANFE (no Supabase)'
+                                  : n.possui_xml
+                                    ? 'Visualizar DANFE (via Espião, será guardado no Supabase)'
+                                    : 'DANFE não disponível'
+                              }
+                            >
+                              DANFE
+                            </a>
+                          )
+                        })()}
                       </div>
                     </td>
                   </tr>

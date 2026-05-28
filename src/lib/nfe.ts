@@ -79,20 +79,45 @@ export async function fetchPdfFromEspiao(chave: string): Promise<EspPdf> {
   return { ok: true, bytes: new Uint8Array(await r.arrayBuffer()) }
 }
 
+// Registra (upsert) o arquivo na tabela consultaxml.arquivos_nfe para o front
+// saber, em 1 query, o que já está no Storage. Degrada sem quebrar se a tabela
+// ainda não existir.
+export async function registrarArquivo(
+  chave: string,
+  tipo: 'xml' | 'pdf',
+  caminho: string,
+  origem: string
+) {
+  try {
+    const { error } = await supabase
+      .from('arquivos_nfe')
+      .upsert({ chave_acesso: chave, tipo, caminho, origem }, { onConflict: 'chave_acesso,tipo' })
+    if (error) console.warn('[arquivos_nfe] registro falhou:', error.message)
+  } catch (e) {
+    console.warn('[arquivos_nfe] registro falhou:', (e as Error).message)
+  }
+}
+
 export async function uploadXml(chave: string, xml: string, origem: string) {
   await ensureBuckets()
-  return supabase.storage.from(BUCKET_XML).upload(xmlPath(chave), new Blob([xml], { type: 'application/xml' }), {
-    contentType: 'application/xml; charset=utf-8',
-    upsert: true,
-    metadata: { origem },
-  })
+  const res = await supabase.storage
+    .from(BUCKET_XML)
+    .upload(xmlPath(chave), new Blob([xml], { type: 'application/xml' }), {
+      contentType: 'application/xml; charset=utf-8',
+      upsert: true,
+      metadata: { origem },
+    })
+  if (!res.error) await registrarArquivo(chave, 'xml', xmlPath(chave), origem)
+  return res
 }
 
 export async function uploadPdf(chave: string, bytes: Uint8Array<ArrayBuffer>, origem: string) {
   await ensureBuckets()
-  return supabase.storage.from(BUCKET_PDF).upload(pdfPath(chave), bytes, {
+  const res = await supabase.storage.from(BUCKET_PDF).upload(pdfPath(chave), bytes, {
     contentType: 'application/pdf',
     upsert: true,
     metadata: { origem },
   })
+  if (!res.error) await registrarArquivo(chave, 'pdf', pdfPath(chave), origem)
+  return res
 }
