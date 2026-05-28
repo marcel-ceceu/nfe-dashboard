@@ -1,3 +1,6 @@
+import { supabase } from '@/lib/supabase'
+import { BUCKET_PDF, pdfPath, parseChave, fetchPdfFromEspiao, uploadPdf } from '@/lib/nfe'
+
 export const dynamic = 'force-dynamic'
 
 export async function GET(
@@ -6,65 +9,37 @@ export async function GET(
 ) {
   const { chave } = await params
 
-  if (!/^\d{44}$/.test(chave)) {
+  if (!parseChave(chave).valid) {
     return new Response(JSON.stringify({ error: 'Chave de acesso inválida' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     })
   }
 
-  const url = `https://api.espiaonfe.com.br/v1-cloud/consulta/chave/pdf?chaveAcesso=${chave}`
-  const r = await fetch(url, {
-    headers: {
-      'esp-cloud-token': process.env.ESP_CLOUD_TOKEN!,
-      'user-token': process.env.USER_TOKEN!,
-      Accept: 'application/pdf, application/json',
-    },
-    cache: 'no-store',
-  })
+  // 1) Já está no Supabase Storage? redireciona pra signed URL (CDN do Supabase)
+  const { data: signed } = await supabase.storage
+    .from(BUCKET_PDF)
+    .createSignedUrl(pdfPath(chave), 120)
+  if (signed?.signedUrl) {
+    return Response.redirect(signed.signedUrl, 302)
+  }
 
-  if (!r.ok) {
-    const body = await r.text()
+  // 2) Cache-on-read: busca no Espião, grava no Storage e serve
+  const pdf = await fetchPdfFromEspiao(chave)
+  if (!pdf.ok) {
     return new Response(
-      JSON.stringify({ error: 'PDF não disponível no Espião', status: r.status, body }),
-      { status: r.status, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: 'PDF não disponível no Espião', status: pdf.status, body: pdf.body }),
+      { status: pdf.status, headers: { 'Content-Type': 'application/json' } }
     )
   }
 
-  // Pode vir como PDF binário OU como JSON { pdf: "<base64>" }
-  const contentType = r.headers.get('content-type') || ''
+  await uploadPdf(chave, pdf.bytes, 'espiao')
 
-  if (contentType.includes('application/json')) {
-    try {
-      const j = await r.json()
-      const b64 = j.pdf || j.base64 || j.arquivo || j.conteudo
-      if (b64) {
-        const buf = Buffer.from(b64, 'base64')
-        return new Response(buf, {
-          headers: {
-            'Content-Type': 'application/pdf',
-            'Content-Disposition': `inline; filename="DANFE_${chave}.pdf"`,
-          },
-        })
-      }
-      return new Response(JSON.stringify({ error: 'Resposta JSON não contém PDF', json: j }), {
-        status: 502,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    } catch (e) {
-      return new Response(JSON.stringify({ error: 'Erro ao parsear JSON do Espião' }), {
-        status: 502,
-        headers: { 'Content-Type': 'application/json' },
-      })
-    }
-  }
-
-  // Assume binário
-  const buf = await r.arrayBuffer()
-  return new Response(buf, {
+  return new Response(new Blob([pdf.bytes], { type: 'application/pdf' }), {
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="DANFE_${chave}.pdf"`,
+      'X-Source': 'espiao->storage',
     },
   })
 }

@@ -1,6 +1,17 @@
 import { supabase } from '@/lib/supabase'
+import { BUCKET_XML, xmlPath, parseChave, fetchXmlFromEspiao, uploadXml } from '@/lib/nfe'
 
 export const dynamic = 'force-dynamic'
+
+function serveXml(xml: string, chave: string, source: string) {
+  return new Response(xml, {
+    headers: {
+      'Content-Type': 'application/xml; charset=utf-8',
+      'Content-Disposition': `inline; filename="NFe_${chave}.xml"`,
+      'X-Source': source,
+    },
+  })
+}
 
 export async function GET(
   _req: Request,
@@ -8,60 +19,46 @@ export async function GET(
 ) {
   const { chave } = await params
 
-  if (!/^\d{44}$/.test(chave)) {
+  if (!parseChave(chave).valid) {
     return new Response(JSON.stringify({ error: 'Chave de acesso invalida' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     })
   }
 
-  // 1) Supabase primeiro (consultaxml.xmls_baixados)
+  // 1) Já está no Supabase Storage? redireciona pra signed URL
+  const { data: signed } = await supabase.storage
+    .from(BUCKET_XML)
+    .createSignedUrl(xmlPath(chave), 120)
+  if (signed?.signedUrl) {
+    return Response.redirect(signed.signedUrl, 302)
+  }
+
+  // 2) Coluna consultaxml.xmls_baixados (legado) -> backfill pro Storage
   try {
     const { data } = await supabase
       .from('xmls_baixados')
-      .select('xml_completo, origem, tamanho_bytes')
+      .select('xml_completo, origem')
       .eq('chave_acesso', chave)
       .maybeSingle()
 
     if (data?.xml_completo) {
-      return new Response(data.xml_completo, {
-        headers: {
-          'Content-Type': 'application/xml; charset=utf-8',
-          'Content-Disposition': `inline; filename="NFe_${chave}.xml"`,
-          'X-Source': `supabase-${data.origem || 'local'}`,
-          'X-Size': String(data.tamanho_bytes || 0),
-        },
-      })
+      await uploadXml(chave, data.xml_completo, data.origem || 'coluna')
+      return serveXml(data.xml_completo, chave, `coluna->storage`)
     }
   } catch (e) {
-    console.warn('[xml] supabase lookup falhou:', (e as Error).message)
+    console.warn('[xml] lookup coluna falhou:', (e as Error).message)
   }
 
-  // 2) Fallback Espiao
-  const url = `https://api.espiaonfe.com.br/v1-cloud/consulta/chave/xml?chaveAcesso=${chave}`
-  const r = await fetch(url, {
-    headers: {
-      'esp-cloud-token': process.env.ESP_CLOUD_TOKEN!,
-      'user-token': process.env.USER_TOKEN!,
-      Accept: 'application/xml, application/json',
-    },
-    cache: 'no-store',
-  })
-
+  // 3) Cache-on-read: Espião -> Storage
+  const r = await fetchXmlFromEspiao(chave)
   if (!r.ok) {
-    const body = await r.text()
     return new Response(
-      JSON.stringify({ error: 'XML nao disponivel', status: r.status, body: body.substring(0, 200) }),
+      JSON.stringify({ error: 'XML nao disponivel', status: r.status, body: r.body }),
       { status: r.status, headers: { 'Content-Type': 'application/json' } }
     )
   }
 
-  const xml = await r.text()
-  return new Response(xml, {
-    headers: {
-      'Content-Type': 'application/xml; charset=utf-8',
-      'Content-Disposition': `inline; filename="NFe_${chave}.xml"`,
-      'X-Source': 'espiao-fallback',
-    },
-  })
+  await uploadXml(chave, r.xml, 'espiao')
+  return serveXml(r.xml, chave, 'espiao->storage')
 }
