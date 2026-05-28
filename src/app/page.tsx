@@ -53,6 +53,8 @@ export default function Home() {
   const [baixando, setBaixando] = useState(false)
   const [progresso, setProgresso] = useState<Progresso>(null)
   const [ajudaAberta, setAjudaAberta] = useState(false)
+  const [atualizando, setAtualizando] = useState(false)
+  const [infoMsg, setInfoMsg] = useState<string | null>(null)
 
   const carregar = useCallback(async () => {
     setLoading(true)
@@ -183,6 +185,29 @@ export default function Home() {
     }
   }, [selecionadas, notas, formato, dataIni, dataFim, carregar])
 
+  const atualizarNotas = useCallback(async () => {
+    setAtualizando(true)
+    setErro(null)
+    setInfoMsg(null)
+    try {
+      const r = await fetch('/api/atualizar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dataIni, dataFim }),
+      })
+      const j = await r.json()
+      if (!r.ok) throw new Error(j.detalhe || j.error || 'Erro ao atualizar notas')
+      setInfoMsg(
+        `Atualização concluída: ${j.inseridos} nova(s), ${j.atualizados} atualizada(s) no período.`
+      )
+      await carregar()
+    } catch (e: unknown) {
+      setErro(e instanceof Error ? e.message : 'Erro ao atualizar notas')
+    } finally {
+      setAtualizando(false)
+    }
+  }, [dataIni, dataFim, carregar])
+
   const qtdAlvo = selecionadas.size > 0 ? selecionadas.size : notas.length
 
   return (
@@ -248,6 +273,20 @@ export default function Home() {
                 {loading ? 'Buscando...' : 'Buscar'}
               </button>
             </div>
+          </div>
+
+          <div className="mt-3 flex items-center justify-end gap-3">
+            <span className="text-xs text-gray-400">
+              Não achou a nota? Busque as mais recentes direto no Espião.
+            </span>
+            <button
+              onClick={atualizarNotas}
+              disabled={atualizando}
+              className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Consulta o resumo do período no Espião e grava as notas no Supabase"
+            >
+              {atualizando ? 'Atualizando...' : 'Atualizar do Espião'}
+            </button>
           </div>
         </div>
 
@@ -327,6 +366,12 @@ export default function Home() {
         {erro && (
           <div className="bg-red-50 border-x border-red-200 px-4 py-2 text-sm text-red-700">
             {erro}
+          </div>
+        )}
+
+        {infoMsg && (
+          <div className="bg-emerald-50 border-x border-emerald-200 px-4 py-2 text-sm text-emerald-700">
+            {infoMsg}
           </div>
         )}
 
@@ -507,6 +552,7 @@ export default function Home() {
                   <li><b>Buscar emitente:</b> filtra por nome (razão social) ou CNPJ. Digite ao menos 2 caracteres.</li>
                   <li>Clique em <b>Buscar</b> (ou tecle <b>Enter</b> no campo de busca) para aplicar os filtros.</li>
                   <li>A consulta traz até <b>500 notas</b> por vez, das mais recentes para as mais antigas.</li>
+                  <li><b>Atualizar do Espião:</b> se a nota (ex.: de ontem) ainda não aparece, clique nesse botão — ele busca as notas do período direto no Espião e grava no banco. Em seguida a lista recarrega.</li>
                 </ul>
               </section>
 

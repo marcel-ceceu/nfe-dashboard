@@ -79,6 +79,73 @@ export async function fetchPdfFromEspiao(chave: string): Promise<EspPdf> {
   return { ok: true, bytes: new Uint8Array(await r.arrayBuffer()) }
 }
 
+// cUF (2 primeiros dígitos da chave) -> sigla da UF
+const CUF_UF: Record<string, string> = {
+  '11': 'RO', '12': 'AC', '13': 'AM', '14': 'RR', '15': 'PA', '16': 'AP', '17': 'TO',
+  '21': 'MA', '22': 'PI', '23': 'CE', '24': 'RN', '25': 'PB', '26': 'PE', '27': 'AL',
+  '28': 'SE', '29': 'BA', '31': 'MG', '32': 'ES', '33': 'RJ', '35': 'SP', '41': 'PR',
+  '42': 'SC', '43': 'RS', '50': 'MS', '51': 'MT', '52': 'GO', '53': 'DF',
+}
+export function ufFromChave(chave: string): string | null {
+  return CUF_UF[chave.substring(0, 2)] || null
+}
+
+export type ResumoDado = {
+  chaveAcesso?: string
+  cnpjCpfEmitente?: string
+  nomeEmitente?: string
+  cnpjCpfDestinatario?: string
+  nomeDestinatario?: string
+  numeroNfe?: number
+  dataEmissao?: string
+  valorTotal?: string
+  situacao?: string
+  manifestacao?: string
+  possuiXml?: boolean
+}
+
+type ResumoPagina =
+  | { ok: true; dados: ResumoDado[]; proxima: string | null }
+  | { ok: false; status: number; body: string }
+
+export async function fetchResumoPagina(opts: {
+  cnpj: string
+  dataIni: string
+  dataFim: string
+  modelo: string
+  emitidaRecebida: string
+  proxima?: string | null
+}): Promise<ResumoPagina> {
+  const p = new URLSearchParams({
+    cnpjCpf: opts.cnpj,
+    dataInicial: opts.dataIni,
+    dataFinal: opts.dataFim,
+    modelo: opts.modelo,
+    emitidaRecebida: opts.emitidaRecebida,
+  })
+  if (opts.proxima) p.set('codigoProximaPagina', opts.proxima)
+
+  const r = await fetch(
+    `https://api.espiaonfe.com.br/v1-cloud/consulta/periodo/nfe-resumo?${p.toString()}`,
+    { headers: espHeaders('application/json'), cache: 'no-store' }
+  )
+  if (!r.ok) return { ok: false, status: r.status, body: (await r.text()).substring(0, 200) }
+
+  const j = await r.json()
+  // Resposta pode vir como objeto { dados, codigoProximaPagina } ou array desses objetos
+  const blocos = Array.isArray(j) ? j : [j]
+  let dados: ResumoDado[] = []
+  let proxima: string | null = null
+  for (const b of blocos) {
+    if (Array.isArray(b?.dados)) dados = dados.concat(b.dados)
+    if (b?.codigoProximaPagina) proxima = b.codigoProximaPagina
+  }
+  // Fallback: resposta é diretamente o array de notas (sem invólucro)
+  if (dados.length === 0 && Array.isArray(j) && j[0]?.chaveAcesso) dados = j as ResumoDado[]
+
+  return { ok: true, dados, proxima }
+}
+
 // Registra (upsert) o arquivo na tabela consultaxml.arquivos_nfe para o front
 // saber, em 1 query, o que já está no Storage. Degrada sem quebrar se a tabela
 // ainda não existir.
