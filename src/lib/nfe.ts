@@ -104,9 +104,24 @@ export type ResumoDado = {
   possuiXml?: boolean
 }
 
+const RESUMO_ENDPOINT =
+  'https://api.espiaonfe.com.br/v1-cloud/consulta/periodo/nfe-resumo'
+
+export type ResumoReqInfo = {
+  endpoint: string
+  metodo: 'GET'
+  query: string
+  cnpj: string
+  dataIni: string
+  dataFim: string
+  modelo: string
+  emitidaRecebida: string
+  proxima: string | null
+}
+
 type ResumoPagina =
   | { ok: true; dados: ResumoDado[]; proxima: string | null }
-  | { ok: false; status: number; body: string }
+  | { ok: false; status: number; body: string; req: ResumoReqInfo }
 
 export async function fetchResumoPagina(opts: {
   cnpj: string
@@ -125,13 +140,50 @@ export async function fetchResumoPagina(opts: {
   })
   if (opts.proxima) p.set('codigoProximaPagina', opts.proxima)
 
-  const r = await fetch(
-    `https://api.espiaonfe.com.br/v1-cloud/consulta/periodo/nfe-resumo?${p.toString()}`,
-    { headers: espHeaders('application/json'), cache: 'no-store' }
-  )
-  if (!r.ok) return { ok: false, status: r.status, body: (await r.text()).substring(0, 200) }
+  const reqInfo: ResumoReqInfo = {
+    endpoint: RESUMO_ENDPOINT,
+    metodo: 'GET',
+    query: p.toString(),
+    cnpj: opts.cnpj,
+    dataIni: opts.dataIni,
+    dataFim: opts.dataFim,
+    modelo: opts.modelo,
+    emitidaRecebida: opts.emitidaRecebida,
+    proxima: opts.proxima ?? null,
+  }
+  console.log('[espiao:resumo] req', reqInfo)
 
-  const j = await r.json()
+  const r = await fetch(`${RESUMO_ENDPOINT}?${p.toString()}`, {
+    headers: espHeaders('application/json'),
+    cache: 'no-store',
+  })
+  const text = await r.text()
+  console.log('[espiao:resumo] resp', {
+    status: r.status,
+    ok: r.ok,
+    bodyPreview: text.slice(0, 500),
+  })
+
+  if (!r.ok) {
+    // Espião: 404 + "Não localizado" = período sem NF-e (não é falha de auth/rota)
+    if (r.status === 404 && text.includes('Não localizado')) {
+      console.log('[espiao:resumo] periodo vazio (404 Nao localizado)')
+      return { ok: true, dados: [], proxima: null }
+    }
+    return { ok: false, status: r.status, body: text.slice(0, 500), req: reqInfo }
+  }
+
+  let j: unknown
+  try {
+    j = JSON.parse(text)
+  } catch {
+    return {
+      ok: false,
+      status: 502,
+      body: `JSON invalido: ${text.slice(0, 500)}`,
+      req: reqInfo,
+    }
+  }
   // Resposta pode vir como objeto { dados, codigoProximaPagina } ou array desses objetos
   const blocos = Array.isArray(j) ? j : [j]
   let dados: ResumoDado[] = []

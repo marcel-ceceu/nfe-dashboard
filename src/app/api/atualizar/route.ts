@@ -5,7 +5,9 @@ import { fetchResumoPagina, ufFromChave, type ResumoDado } from '@/lib/nfe'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-const CNPJ_EMPRESA = process.env.CNPJ_EMPRESA || '08696597000162'
+function tokenHint(v?: string): string {
+  return v ? `set:${v.slice(-4)}` : 'MISSING'
+}
 
 function normalizeData(s?: string): string | null {
   if (!s) return null
@@ -69,13 +71,15 @@ export async function POST(req: Request) {
     )
   }
 
+  const cnpjUsado = process.env.CNPJ_EMPRESA || '08696597000162'
+
   // 1) Puxa o resumo do Espião, paginando
   const dados: ResumoDado[] = []
   let proxima: string | null = null
   let paginas = 0
   do {
     const r = await fetchResumoPagina({
-      cnpj: CNPJ_EMPRESA,
+      cnpj: cnpjUsado,
       dataIni,
       dataFim,
       modelo,
@@ -83,8 +87,26 @@ export async function POST(req: Request) {
       proxima,
     })
     if (!r.ok) {
+      console.error('[atualizar] espiao fail', {
+        status: r.status,
+        body: r.body,
+        cnpjUsado,
+        req: r.req,
+      })
       return NextResponse.json(
-        { error: 'Falha ao consultar o Espião', status: r.status, body: r.body },
+        {
+          error: 'Falha ao consultar o Espião',
+          status: r.status,
+          body: r.body,
+          debug: {
+            cnpjUsado,
+            req: r.req,
+            tokens: {
+              esp: tokenHint(process.env.ESP_CLOUD_TOKEN),
+              user: tokenHint(process.env.USER_TOKEN),
+            },
+          },
+        },
         { status: r.status }
       )
     }
